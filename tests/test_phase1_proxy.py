@@ -80,6 +80,37 @@ def test_rewrite_skip_on_redirection(capsys: pytest.CaptureFixture[str]) -> None
     assert "shell metacharacters" in payload["reason"]
 
 
+def test_rewrite_skip_on_redirect_variants(capsys: pytest.CaptureFixture[str]) -> None:
+    # Ensure our conservative no-shell policy skips common redirect/operator variants.
+    variants: list[list[str]] = [
+        ["echo", "hi", "2>&1"],  # stderr redirected to stdout
+        ["echo", "hi", "2>out.txt"],  # stderr redirect without spaces
+        ["echo", "hi", ">out.txt"],  # stdout redirect without spaces
+        ["echo", "hi", "2>&", "1"],  # spaced "2>&1" equivalent
+        ["echo", "hi", "1>", "out.txt"],  # explicit fd redirect
+    ]
+
+    for tokens in variants:
+        rc = main(["rewrite", *tokens])
+        assert rc == 0
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out.strip())
+        assert payload["action"] == "skip"
+        assert "shell metacharacters" in payload["reason"]
+
+
+def test_rewrite_does_not_flag_redirect_inside_quotes(capsys: pytest.CaptureFixture[str]) -> None:
+    # '>' inside quotes must not trigger shell metacharacters outside quotes.
+    # Command ("echo ...") is unsupported for MVP rewrite; expect "unsupported" reason.
+    rc = main(["rewrite", "echo", "'hi", ">", "out.txt'"])
+    assert rc == 0
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out.strip())
+    assert payload["action"] == "skip"
+    assert "unsupported command" in payload["reason"]
+
+
 def test_proxy_truncates_large_stdout(capsys: pytest.CaptureFixture[str]) -> None:
     big = "print('A' * 20000)"
     rc = main(["proxy", sys.executable, "-c", big])
