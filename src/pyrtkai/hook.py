@@ -37,11 +37,6 @@ def _try_get_tool_input_command(payload: object) -> str | None:
     return None
 
 
-def _try_get_tool_input_command_snake(payload: object) -> str | None:
-    # VS Code/Claude: usually snake_case tool_input.command.
-    return _try_get_tool_input_command(payload)
-
-
 def _try_get_copilot_cli_command(payload: object) -> str | None:
     if not isinstance(payload, dict):
         return None
@@ -116,7 +111,7 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
     kind = _detect_hook_kind(payload)
 
     if kind in {"cursor", "gemini", "claude"}:
-        original_cmd = _try_get_tool_input_command_snake(payload)
+        original_cmd = _try_get_tool_input_command(payload)
     elif kind == "copilot_cli":
         original_cmd = _try_get_copilot_cli_command(payload)
     else:

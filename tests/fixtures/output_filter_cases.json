@@ -1,0 +1,33 @@
+[
+  {
+    "id": "text_short_no_truncation",
+    "input_format": "text",
+    "generator": { "kind": "prefix_suffix", "length": 1000, "prefix": "S", "suffix": "E", "middle": "M" },
+    "expect": { "did_modify": false, "marker_present": false }
+  },
+  {
+    "id": "text_boundary_no_truncation",
+    "input_format": "text",
+    "generator": { "kind": "prefix_suffix", "length": 4000, "prefix": "S", "suffix": "E", "middle": "M" },
+    "expect": { "did_modify": false, "marker_present": false }
+  },
+  {
+    "id": "text_overflow_truncates",
+    "input_format": "text",
+    "generator": { "kind": "prefix_suffix", "length": 4123, "prefix": "S", "suffix": "E", "middle": "M" },
+    "expect": { "did_modify": true, "marker_present": true }
+  },
+  {
+    "id": "json_large_pass_through",
+    "input_format": "json",
+    "generator": { "kind": "json_object", "size": 12000 },
+    "expect": { "did_modify": false, "marker_present": false, "unchanged": true }
+  },
+  {
+    "id": "ndjson_large_pass_through",
+    "input_format": "ndjson",
+    "generator": { "kind": "ndjson", "lines": 600, "line_size": 40 },
+    "expect": { "did_modify": false, "marker_present": false, "unchanged": true }
+  }
+]
+

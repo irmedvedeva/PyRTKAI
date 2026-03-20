@@ -10,6 +10,19 @@ from pyrtkai.shell_parse import (
 )
 
 
+def _env_prefix_has_rtk_disabled(env_prefix: str) -> bool:
+    """
+    True if a leading env token sets RTK_DISABLED (NAME=VALUE), not a substring false positive
+    (e.g. SORTK_DISABLED=1 must not match).
+    """
+    if not env_prefix.strip():
+        return False
+    for tok in env_prefix.split():
+        if tok.startswith("RTK_DISABLED="):
+            return True
+    return False
+
+
 @dataclass(frozen=True)
 class DefaultCommandRewriter:
     """
@@ -19,7 +32,7 @@ class DefaultCommandRewriter:
 
     def rewrite(self, cmd: str, env_prefix: str) -> RewriteDecision:
         # Gate: RTK_DISABLED in env-prefix means skip rewrite entirely.
-        if "RTK_DISABLED=" in env_prefix:
+        if _env_prefix_has_rtk_disabled(env_prefix):
             return RewriteDecision(action="skip", reason="RTK_DISABLED present in env-prefix")
 
         if find_heredoc_marker_outside_quotes(cmd):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import sys
 
 import pytest
@@ -40,7 +41,10 @@ def test_claude_hook_allow_rewrites_git_status(monkeypatch: pytest.MonkeyPatch) 
 
     hook_out = payload["hookSpecificOutput"]
     assert hook_out["permissionDecision"] == "allow"
-    assert hook_out["updatedInput"]["command"] == "pyrtkai proxy git status"
+    expected = (
+        f"{shlex.quote(sys.executable)} -m pyrtkai.cli proxy git status"
+    )
+    assert hook_out["updatedInput"]["command"] == expected
 
 
 def test_claude_hook_deny_when_original_matches(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -60,7 +64,7 @@ def test_claude_hook_deny_when_rewritten_only_matches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Only the rewritten wrapper contains this string.
-    monkeypatch.setenv("PYRTKAI_DENY_REGEXES", "pyrtkai proxy git status")
+    monkeypatch.setenv("PYRTKAI_DENY_REGEXES", "pyrtkai.cli proxy git status")
 
     stdout = _call_hook(
         {"hookEventName": "PreToolUse", "tool_input": {"command": "git status"}}
@@ -80,15 +84,35 @@ def test_cursor_hook_rewrite_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
     payload = json.loads(stdout)
 
     assert payload["permission"] == "allow"
-    assert payload["updated_input"]["command"] == "pyrtkai proxy git status"
+    expected = (
+        f"{shlex.quote(sys.executable)} -m pyrtkai.cli proxy git status"
+    )
+    assert payload["updated_input"]["command"] == expected
 
 
 def test_cursor_hook_rewrite_blocked_by_policy(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PYRTKAI_DENY_REGEXES", "pyrtkai proxy git status")
+    monkeypatch.setenv("PYRTKAI_DENY_REGEXES", "pyrtkai.cli proxy git status")
 
     stdout = _call_hook({"tool_input": {"command": "git status"}})
     payload = json.loads(stdout)
 
+    assert payload == {}
+
+
+def test_cursor_hook_rtk_disabled_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PYRTKAI_DENY_REGEXES", raising=False)
+    stdout = _call_hook({"tool_input": {"command": "RTK_DISABLED=1 git status"}})
+    payload = json.loads(stdout)
+    # Fail-safe opt-out: no rewritten command should be suggested.
+    assert payload == {}
+
+
+def test_claude_hook_rtk_disabled_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PYRTKAI_DENY_REGEXES", raising=False)
+    stdout = _call_hook(
+        {"hookEventName": "PreToolUse", "tool_input": {"command": "RTK_DISABLED=1 git status"}}
+    )
+    payload = json.loads(stdout)
     assert payload == {}
 
 
@@ -102,18 +126,28 @@ def test_gemini_hook_rewrite_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert payload["decision"] == "allow"
     assert (
-        payload["hookSpecificOutput"]["tool_input"]["command"] == "pyrtkai proxy git status"
+        payload["hookSpecificOutput"]["tool_input"]["command"]
+        == f"{shlex.quote(sys.executable)} -m pyrtkai.cli proxy git status"
     )
 
 
 def test_gemini_hook_rewrite_blocked_by_policy(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PYRTKAI_DENY_REGEXES", "pyrtkai proxy git status")
+    monkeypatch.setenv("PYRTKAI_DENY_REGEXES", "pyrtkai.cli proxy git status")
 
     stdout = _call_hook(
         {"tool_name": "run_shell_command", "tool_input": {"command": "git status"}}
     )
     payload = json.loads(stdout)
 
+    assert payload == {"decision": "allow"}
+
+
+def test_gemini_hook_rtk_disabled_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PYRTKAI_DENY_REGEXES", raising=False)
+    stdout = _call_hook(
+        {"tool_name": "run_shell_command", "tool_input": {"command": "RTK_DISABLED=1 git status"}}
+    )
+    payload = json.loads(stdout)
     assert payload == {"decision": "allow"}
 
 
@@ -126,7 +160,7 @@ def test_copilot_cli_hook_suggest_rewrite(monkeypatch: pytest.MonkeyPatch) -> No
     payload = json.loads(stdout)
 
     assert payload["permissionDecision"] == "deny"
-    assert "pyrtkai proxy git status" in payload["permissionDecisionReason"]
+    assert "pyrtkai.cli proxy git status" in payload["permissionDecisionReason"]
 
 
 def test_copilot_cli_hook_deny_on_policy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -138,6 +172,14 @@ def test_copilot_cli_hook_deny_on_policy(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert payload["permissionDecision"] == "deny"
     assert "deny pattern matched" in payload["permissionDecisionReason"]
+
+
+def test_copilot_cli_hook_rtk_disabled_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PYRTKAI_DENY_REGEXES", raising=False)
+    tool_args = json.dumps({"command": "RTK_DISABLED=1 git status"})
+    stdout = _call_hook({"toolName": "bash", "toolArgs": tool_args})
+    payload = json.loads(stdout)
+    assert payload == {}
 
 
 def test_hook_malformed_json_is_fail_closed() -> None:

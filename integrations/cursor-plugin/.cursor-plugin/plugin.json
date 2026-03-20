@@ -1,0 +1,12 @@
+{
+  "name": "pyrtkai",
+  "version": "0.1.0",
+  "description": "Agent Shell hook → PyRTKAI proxy to shrink noisy CLI output. Requires local pyrtkai install (see repo README). PyPI: not published yet.",
+  "author": {
+    "name": "PyRTKAI"
+  },
+  "license": "MIT",
+  "keywords": ["pyrtkai", "shell", "proxy", "tokens", "agent", "cli"],
+  "logo": "assets/logo.png",
+  "hooks": "hooks/hooks.json"
+}

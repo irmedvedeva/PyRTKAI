@@ -3,8 +3,13 @@ from __future__ import annotations
 import json
 from typing import Literal
 
+import pytest
+
 from pyrtkai.contracts import CommandMeta
-from pyrtkai.output_filter import TruncatingOutputFilterEngine
+from pyrtkai.output_filter import (
+    TruncatingOutputFilterEngine,
+    create_output_filter_engine,
+)
 
 
 def _meta(output_format: Literal["text", "json", "ndjson"]) -> CommandMeta:
@@ -57,4 +62,14 @@ def test_ndjson_pass_through_is_unchanged_even_when_large() -> None:
     res = engine.filter(out, meta=_meta("ndjson"))
     assert res.did_modify is False
     assert res.output == out
+
+
+def test_output_filter_profile_unknown_falls_back_to_truncating(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("PYRTKAI_OUTPUT_FILTER_PROFILE", "unknown_profile")
+    # Factory should still return a truncating engine with defaults.
+    engine = create_output_filter_engine()
+    assert isinstance(engine, TruncatingOutputFilterEngine)
+
 

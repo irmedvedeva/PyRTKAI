@@ -1,0 +1,6 @@
+# Relaxed skips for tests/ (asserts, subprocess harness). Usage: bandit -c bandit-tests.yaml -r tests -q
+skips:
+  - B101
+  - B311
+  - B404
+  - B603

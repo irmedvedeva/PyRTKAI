@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "./scripts/pyrtkai-rewrite.sh",
+        "matcher": "Shell"
+      }
+    ]
+  }
+}

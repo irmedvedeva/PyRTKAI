@@ -28,14 +28,35 @@ def estimate_tokens_from_chars(chars: int, *, chars_per_token: float = 4.0) -> i
     return int((chars + chars_per_token - 1) // chars_per_token)
 
 
+def tokens_saved_pct_est(*, tokens_before: int, tokens_saved: int) -> float | None:
+    """
+    Percentage of estimated tokens not passed through after filtering (vs before).
+
+    None when tokens_before <= 0 (no meaningful ratio).
+    """
+    if tokens_before <= 0:
+        return None
+    return round(100.0 * float(tokens_saved) / float(tokens_before), 2)
+
+
 def load_gain_config() -> GainConfig:
     enabled = os.environ.get("PYRTKAI_GAIN_ENABLED", "0") in {"1", "true", "TRUE", "yes"}
     db_path_raw = os.environ.get("PYRTKAI_GAIN_DB_PATH", "").strip()
     retention_days_raw = os.environ.get("PYRTKAI_GAIN_RETENTION_DAYS", "30").strip()
+    chars_per_token_raw = os.environ.get("PYRTKAI_CHARS_PER_TOKEN", "").strip()
     try:
         retention_days = int(retention_days_raw)
     except ValueError:
         retention_days = 30
+
+    chars_per_token = 4.0
+    if chars_per_token_raw:
+        try:
+            candidate = float(chars_per_token_raw)
+            if candidate > 0:
+                chars_per_token = candidate
+        except ValueError:
+            pass
 
     if db_path_raw:
         db_path = Path(db_path_raw).expanduser()
@@ -46,6 +67,7 @@ def load_gain_config() -> GainConfig:
         enabled=enabled,
         db_path=db_path,
         retention_days=retention_days,
+        chars_per_token=chars_per_token,
     )
 
 
@@ -192,22 +214,115 @@ def summarize_proxy_events(
         total_events += events
         total_before += tokens_before
         total_after += tokens_after
+        class_saved = tokens_before - tokens_after
         by_class[classification] = {
             "events": events,
             "tokens_before": tokens_before,
             "tokens_after": tokens_after,
-            "tokens_saved_est": tokens_before - tokens_after,
+            "tokens_saved_est": class_saved,
+            "tokens_saved_pct_est": tokens_saved_pct_est(
+                tokens_before=tokens_before,
+                tokens_saved=class_saved,
+            ),
         }
 
+    total_saved = total_before - total_after
     return {
         "total_events": total_events,
         "tokens_before": total_before,
         "tokens_after": total_after,
-        "tokens_saved_est": total_before - total_after,
+        "tokens_saved_est": total_saved,
+        "tokens_saved_pct_est": tokens_saved_pct_est(
+            tokens_before=total_before,
+            tokens_saved=total_saved,
+        ),
         "by_classification": by_class,
     }
 
 
 def summarize_proxy_events_json(conn: sqlite3.Connection, *, limit: int = 1000) -> str:
     return json.dumps(summarize_proxy_events(conn=conn, limit=limit), ensure_ascii=False)
+
+
+def export_proxy_events(
+    *,
+    conn: sqlite3.Connection,
+    limit: int = 1000,
+) -> list[dict[str, object]]:
+    ensure_schema(conn)
+    cur = conn.execute(
+        """
+        SELECT
+          ts_utc,
+          classification,
+          executed_command,
+          did_fail,
+          stdout_chars_before,
+          stdout_chars_after,
+          stderr_chars_before,
+          stderr_chars_after,
+          stdout_tokens_before,
+          stdout_tokens_after,
+          stderr_tokens_before,
+          stderr_tokens_after,
+          exec_time_ms
+        FROM proxy_events
+        ORDER BY id DESC
+        LIMIT ?;
+        """,
+        (limit,),
+    )
+    rows = cur.fetchall()
+
+    out: list[dict[str, object]] = []
+    for row in rows:
+        ts_utc = str(row[0])
+        classification = str(row[1])
+        executed_command = str(row[2])
+        did_fail = bool(int(row[3]))
+
+        stdout_chars_before = int(row[4])
+        stdout_chars_after = int(row[5])
+        stderr_chars_before = int(row[6])
+        stderr_chars_after = int(row[7])
+
+        stdout_tokens_before = int(row[8])
+        stdout_tokens_after = int(row[9])
+        stderr_tokens_before = int(row[10])
+        stderr_tokens_after = int(row[11])
+
+        exec_time_ms = int(row[12])
+
+        tokens_before = stdout_tokens_before + stderr_tokens_before
+        tokens_after = stdout_tokens_after + stderr_tokens_after
+
+        out.append(
+            {
+                "ts_utc": ts_utc,
+                "classification": classification,
+                "executed_command": executed_command,
+                "did_fail": did_fail,
+                "stdout_chars_before": stdout_chars_before,
+                "stdout_chars_after": stdout_chars_after,
+                "stderr_chars_before": stderr_chars_before,
+                "stderr_chars_after": stderr_chars_after,
+                "stdout_tokens_before": stdout_tokens_before,
+                "stdout_tokens_after": stdout_tokens_after,
+                "stderr_tokens_before": stderr_tokens_before,
+                "stderr_tokens_after": stderr_tokens_after,
+                "tokens_before": tokens_before,
+                "tokens_after": tokens_after,
+                "tokens_saved_est": tokens_before - tokens_after,
+                "exec_time_ms": exec_time_ms,
+            }
+        )
+    return out
+
+
+def export_proxy_events_json(
+    *,
+    conn: sqlite3.Connection,
+    limit: int = 1000,
+) -> str:
+    return json.dumps(export_proxy_events(conn=conn, limit=limit), ensure_ascii=False)
 

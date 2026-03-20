@@ -42,6 +42,20 @@ def _load_deny_patterns_from_env() -> tuple[list[re.Pattern[str]], str | None]:
     return patterns, None
 
 
+def _load_max_deny_input_chars() -> int:
+    """
+    Cap command length before applying deny regexes (mitigates pathological regex cost).
+
+    Env: PYRTKAI_DENY_REGEX_MAX_INPUT_CHARS (default 65536). Invalid/ non-positive → default.
+    """
+    raw = os.environ.get("PYRTKAI_DENY_REGEX_MAX_INPUT_CHARS", "65536").strip()
+    try:
+        n = int(raw)
+        return n if n > 0 else 65536
+    except ValueError:
+        return 65536
+
+
 def evaluate_permission(
     *,
     original_command: str,
@@ -55,9 +69,29 @@ def evaluate_permission(
             final_command=original_command,
         )
 
+    if not patterns:
+        final = rewritten_command if rewritten_command is not None else original_command
+        return PolicyDecision(
+            permission_decision="allow",
+            reason="no deny patterns matched",
+            final_command=final,
+        )
+
+    max_chars = _load_max_deny_input_chars()
     candidates = [original_command]
     if rewritten_command:
         candidates.append(rewritten_command)
+
+    for cand in candidates:
+        if len(cand) > max_chars:
+            return PolicyDecision(
+                permission_decision="deny",
+                reason=(
+                    f"command length {len(cand)} exceeds "
+                    f"PYRTKAI_DENY_REGEX_MAX_INPUT_CHARS ({max_chars}) (fail-closed)"
+                ),
+                final_command=original_command,
+            )
 
     for cand in candidates:
         for pat in patterns:
