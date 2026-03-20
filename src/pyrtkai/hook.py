@@ -97,19 +97,17 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
     try:
         payload_obj = json.loads(stdin_json)
     except json.JSONDecodeError:
-        # Can't parse: fail-closed by returning deny (Claude-like); callers expecting
-        # Cursor/Gemini may ignore/permit, but rewrite will be blocked anyway.
-        decision = evaluate_permission(original_command="", rewritten_command=None)
+        # Can't parse: fail-closed by returning deny.
+        # (Do not rely on evaluate_permission() because no deny-regexes may be configured.)
         return HookOutputClaude(
-            permission_decision=decision.permission_decision,
+            permission_decision="deny",
             permission_decision_reason="invalid hook input JSON (fail-closed)",
             updated_command="",
         ).to_dict()
 
     if not isinstance(payload_obj, dict):
-        decision = evaluate_permission(original_command="", rewritten_command=None)
         return HookOutputClaude(
-            permission_decision=decision.permission_decision,
+            permission_decision="deny",
             permission_decision_reason="hook payload is not an object (fail-closed)",
             updated_command="",
         ).to_dict()
