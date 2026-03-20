@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest ruff mypy pip-audit bandit
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Lint (ruff)
+        run: ruff check src tests
+
+      - name: Typecheck (mypy)
+        run: mypy src tests
+
+      - name: Security (pip-audit)
+        run: pip-audit
+
+      - name: Security (bandit)
+        run: bandit -r src tests -q

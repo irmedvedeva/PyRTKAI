@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Test/quality tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# App/local caches (may contain large downloaded artifacts)
+.cache/
+
+# Environment files (if you add any locally)
+.env
+.env.*
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+
