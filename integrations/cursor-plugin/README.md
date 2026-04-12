@@ -83,7 +83,7 @@ Without a working interpreter + install, the hook will fail when Cursor runs it.
 | `hooks/hooks.json` | Registers `preToolUse` + `Shell` matcher → `./scripts/pyrtkai-rewrite.sh`. |
 | `scripts/pyrtkai-rewrite.sh` | Forwards stdin/stdout to `pyrtkai hook`. |
 | `scripts/.pyrtkai-rewrite.sh.sha256` | Expected SHA-256 of `pyrtkai-rewrite.sh` (used by tests and optional `verify-hook`). |
-| `assets/logo.png` | Marketplace listing logo (RTK branding). |
+| `assets/logo.png` | Marketplace listing logo. |
 
 ## Manual install (without Marketplace)
 

@@ -23,3 +23,4 @@ We aim to acknowledge reports within a few business days; timelines depend on se
 
 - **`PYRTKAI_PYTHON`** and hook `PATH` are **user-controlled** by design: only point them at interpreters you trust.
 - PyRTKAI runs **local** subprocesses; treat hook and proxy configuration like any privileged developer tooling.
+- **Host permission models** (IDE allow/deny lists, agent policies) are **not** read by PyRTKAI. Use **`PYRTKAI_DENY_REGEXES` / `PYRTKAI_DENY_REGEX`** to enforce blocks at the hook layer in addition to any IDE rules. The hook avoids emitting a blanket **allow** when local policy denies, and uses **pass-through `{}`** where the host should decide (e.g. Cursor, Gemini when denied).

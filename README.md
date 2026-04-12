@@ -1,10 +1,12 @@
 # PyRTKAI
 
-PyRTKAI addresses the same problem as [`rtk-ai/rtk`](https://github.com/rtk-ai/rtk): **less CLI noise** in AI agent workflows. This project is **Python-first**: a safe command proxy, conservative rewrite decisions, and output filtering to cut token waste. It is **not** a Rust rewrite of RTK—the tradeoff is **inspectable code** and explicit safety defaults (no shell, fail-closed policy) over maximum command coverage.
+PyRTKAI reduces **CLI noise** in AI agent workflows: a **Python**-based command proxy, conservative rewrite decisions, and output filtering to cut wasted context. The focus is **inspectable code**, explicit safety defaults (**no shell** in the proxy path, **fail-closed** policy), and **testability**.
 
-## Positioning (vs rtk-ai/rtk)
+## Goals
 
-**RTK** (Rust) ships a fast binary, broad command support, and mature install paths (`brew`, release binaries). **PyRTKAI** fits teams that want **Python-only** deployment, easier security review, and the bundled **Cursor** layout under `integrations/cursor-plugin/` with `doctor` / `verify-hook`. RTK optimizes for breadth and performance; PyRTKAI optimizes for **predictability** and **testability** in this codebase.
+- **Python-only** deployment and straightforward security review of the codebase.
+- First-class **Cursor** integration via `integrations/cursor-plugin/` with `doctor` / `verify-hook`.
+- **Predictable** behavior over chasing maximum command coverage in a single release.
 
 ## Key ideas
 
@@ -53,20 +55,27 @@ A Cursor Marketplace–style layout (manifest, `hooks/hooks.json`, shell wrapper
 
 ## Usage
 
-Basic commands:
+Run **`pyrtkai --help`** and **`pyrtkai <subcommand> --help`** for the full CLI.
+
+| Area | Commands |
+|------|----------|
+| Health / config | `doctor [--json]`, `config [--json]` |
+| Core | `rewrite <words…>` (rewrite decision), `proxy <argv…>` (run command with filtering) |
+| Cursor hook | `hook` (stdin/stdout JSON), `verify-hook [--json]` |
+| Metrics | `gain summary`, `gain export`, `gain history` (optional `--json`, `--limit`); `gain project [--root PATH]` |
+| Benchmark | `bench proxy --iters N [--json] -- <argv…>` |
+
+Examples:
 
 - `pyrtkai doctor --json`
 - `pyrtkai config --json`
-- `pyrtkai rewrite <command...>`
-- `pyrtkai proxy <command...>`
-
-Related local utilities:
-
+- `pyrtkai rewrite git status`
+- `pyrtkai proxy git status`
 - `pyrtkai hook` reads hook JSON from stdin and writes the adapted JSON response to stdout.
-- `pyrtkai verify-hook --json` verifies the SHA-256 integrity baseline for the installed hook script.
+- `pyrtkai verify-hook --json` verifies the SHA-256 integrity baseline for the installed hook script (when using the Cursor bundle).
 - `pyrtkai gain summary --json`
 - `pyrtkai gain export --limit 1000`
-- `pyrtkai bench proxy --iters 5 <command...>`
+- `pyrtkai bench proxy --iters 5 --json -- python3 -c "print(1)"`
 
 ## Doctor and config
 
@@ -92,6 +101,8 @@ The `doctor --json` output includes:
 - `pyrtkai config --json`
 
 ## Configuration
+
+**Full reference:** [docs/environment-variables.md](docs/environment-variables.md) (all `PYRTKAI_*` variables in one place).
 
 Environment variables control the rewrite allow list, output truncation, and policy gating.
 
@@ -128,13 +139,13 @@ Policy gate deny patterns:
 
 ### Gain tracking (local SQLite)
 
-When **`PYRTKAI_GAIN_ENABLED=1`**, events are stored under **`PYRTKAI_GAIN_DB_PATH`** (default `~/.pyrtkai/gain.sqlite`). Treat this path like any local credential store: use a user-writable directory you trust; do not point it at world-writable locations in multi-user setups.
+When **`PYRTKAI_GAIN_ENABLED=1`**, events are stored under **`PYRTKAI_GAIN_DB_PATH`** (default `~/.pyrtkai/gain.sqlite`). Older rows are pruned using **`PYRTKAI_GAIN_RETENTION_DAYS`** (default **30**). Treat the DB path like any local credential store: use a user-writable directory you trust; do not point it at world-writable locations in multi-user setups.
 
 **CLI:** `pyrtkai gain` with **no** subcommand (`summary` / `export` / `history`) behaves the same as **`pyrtkai gain summary`**: both print the aggregated summary (JSON if **`--json`**). Use explicit subcommands when you want export/history or separate `--limit` on summary.
 
 #### Understanding savings (amount and percent)
 
-PyRTKAI does **not** call a model tokenizer. It estimates “tokens” from **character counts** of stdout/stderr (default: **one token ≈ four characters**, overridable with **`PYRTKAI_CHARS_PER_TOKEN`**). That makes numbers **stable and comparable across runs**, but they are **not** identical to OpenAI/Anthropic token counts.
+PyRTKAI does **not** call a model tokenizer. It estimates “tokens” from **character counts** of stdout/stderr (default: **one token ≈ four characters**, overridable with **`PYRTKAI_CHARS_PER_TOKEN`**). That makes numbers **stable and comparable across runs**, but they are **not** identical to provider tokenizer counts.
 
 After commands run through **`pyrtkai proxy`**, read totals with:
 
@@ -179,6 +190,7 @@ The project uses defense-in-depth checks in CI, including:
 
 ## Contributing
 
+- **Roadmap:** product direction and ecosystem watch list — [docs/product-roadmap.md](docs/product-roadmap.md).
 - **Forks:** if your canonical GitHub repository is not the one listed in **`[project.urls]`** inside **`pyproject.toml`**, update those URLs so PyPI and metadata point to your repo.
 - **Pull requests:** run the same checks as CI before pushing: `make test`, `make lint`, `make typecheck`, and `make security` (or the individual `pytest` / `ruff` / `mypy` / `bandit` / `pip-audit` commands). Optionally run `python -m build` to verify wheels/sdists.
 - **Commits:** large documentation-only changes (e.g. under `.doc/`) can be split from code commits if you want a clearer history—optional, not required.
@@ -208,7 +220,7 @@ To scan `tests/` with relaxed skips (assert/subprocess/random in harnesses), use
 
 ### Performance SLO (optional)
 
-Loose proxy-overhead bounds and CI notes: `.doc/13_performance_slo.md`. Local check:
+Loose proxy-overhead checks live in **`tests/test_performance_slo.py`**. Local run:
 
 ```bash
 PYRTKAI_ENFORCE_PERF_SLO=1 pytest -q tests/test_performance_slo.py

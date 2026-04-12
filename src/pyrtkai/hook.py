@@ -139,8 +139,11 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
         return {}
 
     if kind == "gemini":
-        # Gemini CLI: decision allow + optional hookSpecificOutput.tool_input.command.
-        if policy.permission_decision == "allow" and rewrite_decision.action == "rewrite":
+        # Gemini CLI: only emit an explicit allow when policy allows and we rewrite.
+        # If policy denies, return {} (pass-through) — do not assert allow; let the host enforce its own rules.
+        if policy.permission_decision == "deny":
+            return {}
+        if rewrite_decision.action == "rewrite":
             return {
                 "decision": "allow",
                 "hookSpecificOutput": {
@@ -162,7 +165,7 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
                 "permissionDecision": "deny",
                 "permissionDecisionReason": (
                     "Token savings: use "
-                    f"`{rewritten_cmd}` instead (rtk saves 60-90% tokens)"
+                    f"`{rewritten_cmd}` instead (filtered proxy output)"
                 ),
             }
         return {}

@@ -139,7 +139,7 @@ def test_gemini_hook_rewrite_blocked_by_policy(monkeypatch: pytest.MonkeyPatch) 
     )
     payload = json.loads(stdout)
 
-    assert payload == {"decision": "allow"}
+    assert payload == {}
 
 
 def test_gemini_hook_rtk_disabled_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:

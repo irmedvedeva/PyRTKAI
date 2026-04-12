@@ -30,9 +30,19 @@ These steps need accounts and human verification; they are not automated here.
 
 - Confirm the project name on [pypi.org](https://pypi.org/) (e.g. `pyrtkai`).
 - Use a PyPI account with 2FA; create an API token or configure [Trusted Publishing](https://docs.pypi.org/trusted-publishers/).
-- Build and upload: `python -m build`, then `twine check dist/*`, test on [TestPyPI](https://test.pypi.org/) if desired, then `twine upload dist/*`.
-- Align `pyrtkai.__version__` with the release tag.
-- Smoke-test: `pip install pyrtkai` in a fresh venv.
+- Install build tools once: `pip install build twine` (or use your existing tool versions).
+- From a **clean** git checkout at the release commit:
+
+  ```bash
+  rm -rf dist/ build/ src/*.egg-info
+  python -m build
+  twine check dist/*
+  ```
+
+- Test upload (optional): `twine upload --repository testpypi dist/*`
+- Production: `twine upload dist/*` (uses `~/.pypirc` or `TWINE_USERNAME` / `TWINE_PASSWORD` for token auth).
+- Align `src/pyrtkai/__version__.py` with the Git tag (e.g. `v0.1.0` ↔ `0.1.0`).
+- Smoke-test: `pip install pyrtkai` in a fresh venv; run `pyrtkai --help` and `pyrtkai doctor --json`.
 
 ## Forks
 

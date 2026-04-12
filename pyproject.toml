@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyrtkai"
-description = "Safe Python analog of rtk-ai/rtk: rewrite + output compression for agent CLI calls"
+description = "CLI proxy and output filtering for AI agents: safe subprocess execution, rewrite hooks, policy gate, local gain metrics"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
