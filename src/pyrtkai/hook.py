@@ -140,7 +140,8 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
 
     if kind == "gemini":
         # Gemini CLI: only emit an explicit allow when policy allows and we rewrite.
-        # If policy denies, return {} (pass-through) — do not assert allow; let the host enforce its own rules.
+        # If policy denies, return {} (pass-through) — do not assert allow;
+        # let the host enforce its own rules.
         if policy.permission_decision == "deny":
             return {}
         if rewrite_decision.action == "rewrite":
