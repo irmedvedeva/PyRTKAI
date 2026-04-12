@@ -23,7 +23,8 @@ jobs:
           python -m pip install pytest ruff mypy pip-audit bandit
 
       - name: Run tests
-        run: pytest -q
+        run: pytest -q --ignore=tests/e2e
+        # E2E runs in the dedicated matrix job (Ubuntu/Windows/macOS). Includes packaging tests.
 
       - name: Lint (ruff)
         run: ruff check src tests
@@ -35,4 +36,59 @@ jobs:
         run: pip-audit
 
       - name: Security (bandit)
-        run: bandit -r src tests -q
+        run: bandit -r src -q
+
+  e2e:
+    name: E2E (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest
+
+      - name: Cross-platform E2E
+        run: pytest -q tests/e2e/
+
+  # Optional: proxy overhead bounds; does not block merges (continue-on-error).
+  # Windows matrix catches path/subprocess issues for broader "prod" beyond Linux.
+  perf_slo:
+    name: Performance SLO (optional)
+    runs-on: ${{ matrix.os }}
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pytest
+
+      - name: Run SLO tests
+        env:
+          PYRTKAI_ENFORCE_PERF_SLO: "1"
+        run: pytest -q tests/test_performance_slo.py

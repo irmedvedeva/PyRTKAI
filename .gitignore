@@ -24,3 +24,7 @@ dist/
 .idea/
 .DS_Store
 
+# Local-only (never push): planning docs and Cursor rules
+.doc/
+.cursor/
+

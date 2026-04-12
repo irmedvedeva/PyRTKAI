@@ -14,7 +14,10 @@ def test_main_raises_runtime_error_when_subcommand_not_dispatched(
 ) -> None:
     ns = argparse.Namespace(cmd="__missing_dispatch_test__")
 
-    def fake_parse(self: argparse.ArgumentParser, argv: list[str] | None = None) -> argparse.Namespace:
+    def fake_parse(
+        self: argparse.ArgumentParser,
+        argv: list[str] | None = None,
+    ) -> argparse.Namespace:
         return ns
 
     monkeypatch.setattr(argparse.ArgumentParser, "parse_args", fake_parse)
