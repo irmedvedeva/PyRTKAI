@@ -16,6 +16,7 @@ from pyrtkai.tracking import (
     load_gain_config,
     record_proxy_event,
     summarize_proxy_events,
+    summarize_proxy_events_for_project,
     tokens_saved_pct_est,
 )
 
@@ -32,6 +33,51 @@ def test_tokens_saved_pct_est_helper() -> None:
     assert tokens_saved_pct_est(tokens_before=-1, tokens_saved=0) is None
     assert tokens_saved_pct_est(tokens_before=100, tokens_saved=25) == 25.0
     assert tokens_saved_pct_est(tokens_before=3, tokens_saved=1) == 33.33
+
+
+def test_summarize_proxy_events_for_project_filters_by_cwd(tmp_path: Path) -> None:
+    db_path = tmp_path / "gain.sqlite"
+    conn = connect(db_path)
+    proj = tmp_path / "myapp"
+    proj.mkdir()
+    other = tmp_path / "other"
+    other.mkdir()
+    proj_s = str(proj.resolve())
+    other_s = str(other.resolve())
+
+    def _record(cwd: str, classification: str) -> None:
+        record_proxy_event(
+            conn=conn,
+            classification=classification,
+            executed_command="x",
+            did_fail=False,
+            stdout_chars_before=40,
+            stdout_chars_after=10,
+            stderr_chars_before=0,
+            stderr_chars_after=0,
+            stdout_tokens_before=estimate_tokens_from_chars(40),
+            stdout_tokens_after=estimate_tokens_from_chars(10),
+            stderr_tokens_before=0,
+            stderr_tokens_after=0,
+            exec_time_ms=1,
+            cwd=cwd,
+            retention_days=30,
+        )
+
+    _record(proj_s, "git")
+    _record(other_s, "ls")
+    sub = proj / "pkg"
+    sub.mkdir()
+    _record(str(sub.resolve()), "rg")
+
+    summary = summarize_proxy_events_for_project(conn=conn, project_root=proj, limit=50)
+    conn.close()
+
+    assert summary["project_root"] == proj_s
+    assert summary["total_events"] == 2
+    by_class = cast(dict[str, dict[str, object]], summary["by_classification"])
+    assert set(by_class) == {"git", "rg"}
+    assert "ls" not in by_class
 
 
 def test_record_and_summarize_proxy_events(tmp_path: Path) -> None:
@@ -153,6 +199,45 @@ def test_gain_cli_default_summary_json(
     assert payload["tokens_saved_pct_est"] is None
 
 
+def test_gain_project_cli_json(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "gain.sqlite"
+    proj = tmp_path / "app"
+    proj.mkdir()
+    conn = connect(db_path)
+    record_proxy_event(
+        conn=conn,
+        classification="git",
+        executed_command="git status",
+        did_fail=False,
+        stdout_chars_before=40,
+        stdout_chars_after=10,
+        stderr_chars_before=0,
+        stderr_chars_after=0,
+        stdout_tokens_before=estimate_tokens_from_chars(40),
+        stdout_tokens_after=estimate_tokens_from_chars(10),
+        stderr_tokens_before=0,
+        stderr_tokens_after=0,
+        exec_time_ms=1,
+        cwd=str(proj.resolve()),
+        retention_days=30,
+    )
+    conn.close()
+
+    monkeypatch.setenv("PYRTKAI_GAIN_DB_PATH", str(db_path))
+    monkeypatch.delenv("PYRTKAI_GAIN_ENABLED", raising=False)
+
+    rc = main(["gain", "project", "--root", str(proj), "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["project_root"] == str(proj.resolve())
+    assert payload["total_events"] == 1
+    assert int(payload["tokens_saved_est"]) > 0
+
+
 def test_gain_export_cli(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -188,6 +273,7 @@ def test_gain_export_cli(
     assert isinstance(payload, list)
     assert payload[0]["classification"] == "git"
     assert payload[0]["tokens_saved_est"] >= 0
+    assert payload[0]["cwd"] == ""
 
 
 def test_proxy_tracking_counts_before_after(
@@ -205,12 +291,13 @@ def test_proxy_tracking_counts_before_after(
     conn = sqlite3.connect(db_path)
     try:
         row = conn.execute(
-            "SELECT stdout_tokens_before, stdout_tokens_after "
+            "SELECT stdout_tokens_before, stdout_tokens_after, cwd "
             "FROM proxy_events ORDER BY id DESC LIMIT 1;"
         ).fetchone()
         assert row is not None
         tokens_before = int(row[0])
         tokens_after = int(row[1])
+        assert str(row[2]) == str(Path.cwd().resolve())
         assert tokens_before > 3000
         assert tokens_after < 2000
         assert tokens_before - tokens_after > 2000

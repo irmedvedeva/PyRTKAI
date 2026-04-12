@@ -84,6 +84,18 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+def _proxy_events_has_cwd_column(conn: sqlite3.Connection) -> bool:
+    cur = conn.execute("PRAGMA table_info(proxy_events);")
+    return any(str(row[1]) == "cwd" for row in cur.fetchall())
+
+
+def _ensure_proxy_events_cwd_column(conn: sqlite3.Connection) -> None:
+    if _proxy_events_has_cwd_column(conn):
+        return
+    conn.execute("ALTER TABLE proxy_events ADD COLUMN cwd TEXT NOT NULL DEFAULT '';")
+    conn.commit()
+
+
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
@@ -101,13 +113,15 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
             stdout_tokens_after INTEGER NOT NULL,
             stderr_tokens_before INTEGER NOT NULL,
             stderr_tokens_after INTEGER NOT NULL,
-            exec_time_ms INTEGER NOT NULL
+            exec_time_ms INTEGER NOT NULL,
+            cwd TEXT NOT NULL DEFAULT ''
         );
         """
     )
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_proxy_events_ts_utc ON proxy_events(ts_utc);"
     )
+    _ensure_proxy_events_cwd_column(conn)
 
 
 def apply_retention(conn: sqlite3.Connection, *, retention_days: int) -> None:
@@ -138,6 +152,7 @@ def record_proxy_event(
     stderr_tokens_before: int,
     stderr_tokens_after: int,
     exec_time_ms: int,
+    cwd: str = "",
     ts_utc: str | None = None,
     retention_days: int = 30,
 ) -> None:
@@ -157,8 +172,9 @@ def record_proxy_event(
             stdout_tokens_after,
             stderr_tokens_before,
             stderr_tokens_after,
-            exec_time_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            exec_time_ms,
+            cwd
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """,
         (
             ts_utc or _utc_now_iso(),
@@ -174,6 +190,7 @@ def record_proxy_event(
             stderr_tokens_before,
             stderr_tokens_after,
             exec_time_ms,
+            cwd,
         ),
     )
     apply_retention(conn, retention_days=retention_days)
@@ -240,8 +257,94 @@ def summarize_proxy_events(
     }
 
 
+def summarize_proxy_events_for_project(
+    *,
+    conn: sqlite3.Connection,
+    project_root: Path | str,
+    limit: int = 1000,
+) -> dict[str, object]:
+    """
+    Aggregate token estimates for proxy events whose recorded working directory is
+    ``project_root`` or a subdirectory (``cwd`` must be non-empty; older rows skip).
+    """
+    ensure_schema(conn)
+    root_path = Path(project_root).expanduser().resolve(strict=False)
+    root_s = str(root_path)
+    sep = os.sep
+    like_pat = root_s + sep + "%"
+
+    cur = conn.execute(
+        """
+        SELECT
+          classification,
+          COUNT(*) AS events,
+          SUM(stdout_tokens_before + stderr_tokens_before) AS tokens_before,
+          SUM(stdout_tokens_after + stderr_tokens_after) AS tokens_after
+        FROM proxy_events
+        WHERE cwd != '' AND (cwd = ? OR cwd LIKE ?)
+        GROUP BY classification
+        ORDER BY tokens_before DESC
+        LIMIT ?;
+        """,
+        (root_s, like_pat, limit),
+    )
+    rows = cur.fetchall()
+
+    by_class: dict[str, object] = {}
+    total_before = 0
+    total_after = 0
+    total_events = 0
+    for row in rows:
+        classification = str(row[0])
+        events = int(row[1])
+        tokens_before = int(row[2] or 0)
+        tokens_after = int(row[3] or 0)
+        total_events += events
+        total_before += tokens_before
+        total_after += tokens_after
+        class_saved = tokens_before - tokens_after
+        by_class[classification] = {
+            "events": events,
+            "tokens_before": tokens_before,
+            "tokens_after": tokens_after,
+            "tokens_saved_est": class_saved,
+            "tokens_saved_pct_est": tokens_saved_pct_est(
+                tokens_before=tokens_before,
+                tokens_saved=class_saved,
+            ),
+        }
+
+    total_saved = total_before - total_after
+    return {
+        "project_root": root_s,
+        "total_events": total_events,
+        "tokens_before": total_before,
+        "tokens_after": total_after,
+        "tokens_saved_est": total_saved,
+        "tokens_saved_pct_est": tokens_saved_pct_est(
+            tokens_before=total_before,
+            tokens_saved=total_saved,
+        ),
+        "by_classification": by_class,
+    }
+
+
 def summarize_proxy_events_json(conn: sqlite3.Connection, *, limit: int = 1000) -> str:
     return json.dumps(summarize_proxy_events(conn=conn, limit=limit), ensure_ascii=False)
+
+
+def summarize_proxy_events_for_project_json(
+    conn: sqlite3.Connection,
+    *,
+    project_root: Path | str,
+    limit: int = 1000,
+) -> str:
+    return json.dumps(
+        summarize_proxy_events_for_project(
+            conn=conn, project_root=project_root, limit=limit
+        ),
+        ensure_ascii=False,
+    )
 
 
 def export_proxy_events(
@@ -265,7 +368,8 @@ def export_proxy_events(
           stdout_tokens_after,
           stderr_tokens_before,
           stderr_tokens_after,
-          exec_time_ms
+          exec_time_ms,
+          cwd
         FROM proxy_events
         ORDER BY id DESC
         LIMIT ?;
@@ -292,6 +396,7 @@ def export_proxy_events(
         stderr_tokens_after = int(row[11])
 
         exec_time_ms = int(row[12])
+        cwd = str(row[13])
 
         tokens_before = stdout_tokens_before + stderr_tokens_before
         tokens_after = stdout_tokens_after + stderr_tokens_after
@@ -314,6 +419,7 @@ def export_proxy_events(
                 "tokens_after": tokens_after,
                 "tokens_saved_est": tokens_before - tokens_after,
                 "exec_time_ms": exec_time_ms,
+                "cwd": cwd,
             }
         )
     return out

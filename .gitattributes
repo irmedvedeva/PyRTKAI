@@ -1,0 +1,4 @@
+* text=auto
+
+# Shell hook: fixed SHA-256 baseline; CRLF on Windows would change the digest.
+integrations/cursor-plugin/scripts/pyrtkai-rewrite.sh text eol=lf

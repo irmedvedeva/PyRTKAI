@@ -4,7 +4,15 @@ This directory is a **Cursor Marketplace–shaped** plugin layout: manifest, hoo
 
 ## Quick start (before first Cursor session)
 
-1. Clone this repository and create a venv **in the repo root** (PyPI package **not** published yet):
+1. Install **`pyrtkai`** into a venv (published on **PyPI** as `pyrtkai`), *or* clone this repo and use an editable install:
+
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/pip install -U pip
+   .venv/bin/pip install pyrtkai
+   ```
+
+   **Developers** working on the plugin next to the source tree:
 
    ```bash
    cd /path/to/PyRTKAI
@@ -33,30 +41,31 @@ The wrapper is **`bash`**. On Windows use **Git Bash**, **WSL**, or another envi
 
 ## Prerequisites (details)
 
-1. **Python 3.11+** and **`pyrtkai` installed** from this repository (**not on PyPI yet** — `pip install pyrtkai` will fail until published).
+1. **Python 3.11+** and **`pyrtkai` on the interpreter Cursor uses.**
 
-   **Recommended:** venv **inside the clone**, editable install (same flow as day-to-day development):
+   **Typical:** install from PyPI into a dedicated venv, then point the hook at that Python:
+
+   ```bash
+   python3 -m venv ~/.venvs/pyrtkai
+   ~/.venvs/pyrtkai/bin/pip install -U pip pyrtkai
+   export PYRTKAI_PYTHON="$HOME/.venvs/pyrtkai/bin/python"
+   ```
+
+   **From a clone** (plugin development): editable install in a venv **in the repo root** is fine:
 
    ```bash
    cd /path/to/PyRTKAI
    python3 -m venv .venv
    .venv/bin/pip install -U pip
    .venv/bin/pip install -e .
-   ```
-
-   Point the Cursor hook at that interpreter (absolute path is most reliable):
-
-   ```bash
    export PYRTKAI_PYTHON="/path/to/PyRTKAI/.venv/bin/python"
    ```
 
    (Set `PYRTKAI_PYTHON` in the environment Cursor inherits, e.g. your shell profile or desktop session, so agent hooks see it.)
 
-   **Alternative:** a separate venv, e.g. `python3 -m venv ~/.venvs/pyrtkai` then `~/.venvs/pyrtkai/bin/pip install -e /path/to/PyRTKAI` and `PYRTKAI_PYTHON=$HOME/.venvs/pyrtkai/bin/python`.
-
    **PEP 668 (e.g. Debian/Ubuntu):** do not use system `pip` without a venv; the commands above avoid `externally-managed-environment`.
 
-   **After a PyPI release:** `pip install pyrtkai` inside any venv will be enough; still set `PYRTKAI_PYTHON` if `pyrtkai` is not on the default `PATH` Cursor uses.
+   If `pyrtkai` is not on the `PATH` Cursor uses for hooks, **`PYRTKAI_PYTHON`** must be set to the venv **`python`** (absolute path).
 
 2. The hook script uses, in order:
    - **`PYRTKAI_PYTHON`** (full path to `python`) if set — useful when multiple Python installs exist;

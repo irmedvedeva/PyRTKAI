@@ -1,8 +1,10 @@
 # PyRTKAI
 
-PyRTKAI is a local Python analog of `rtk-ai/rtk`. It provides a safe command proxy, a conservative rewrite decision layer, and an output filtering mechanism designed to reduce token waste when agents run CLI tools.
+PyRTKAI addresses the same problem as [`rtk-ai/rtk`](https://github.com/rtk-ai/rtk): **less CLI noise** in AI agent workflows. This project is **Python-first**: a safe command proxy, conservative rewrite decisions, and output filtering to cut token waste. It is **not** a Rust rewrite of RTK—the tradeoff is **inspectable code** and explicit safety defaults (no shell, fail-closed policy) over maximum command coverage.
 
-The MVP focuses on safety and testability.
+## Positioning (vs rtk-ai/rtk)
+
+**RTK** (Rust) ships a fast binary, broad command support, and mature install paths (`brew`, release binaries). **PyRTKAI** fits teams that want **Python-only** deployment, easier security review, and the bundled **Cursor** layout under `integrations/cursor-plugin/` with `doctor` / `verify-hook`. RTK optimizes for breadth and performance; PyRTKAI optimizes for **predictability** and **testability** in this codebase.
 
 ## Key ideas
 
@@ -14,11 +16,26 @@ The MVP focuses on safety and testability.
 
 ## Installation
 
-This project installs as the `pyrtkai` command.
+The installed command is **`pyrtkai`** (Python **3.11+**).
 
-### Recommended (venv inside the clone)
+### From PyPI (typical users)
 
-Use a virtual environment **in the repository root** and an **editable** install (matches a typical dev setup and avoids PEP 668 on Debian/Ubuntu):
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -U pip
+.venv/bin/pip install pyrtkai
+.venv/bin/pyrtkai --help
+```
+
+If **`pip install pyrtkai`** fails (name not on PyPI yet), use **From a source clone** below until the first release is published.
+
+Activate the venv or call `.venv/bin/pyrtkai` directly. If **`pyrtkai`** is not on the `PATH` Cursor uses, set **`PYRTKAI_PYTHON`** to your venv’s **`python`** (absolute path).
+
+**PEP 668:** On many Linux distributions, `pip install` into the **system** Python fails with `externally-managed-environment`. Use a **venv** (as above), **pipx**, or another dedicated environment—not `sudo pip` unless you understand the risks.
+
+### From a source clone (contributors, Cursor plugin dev)
+
+Use a venv **in the repository root** and an **editable** install:
 
 ```bash
 cd /path/to/PyRTKAI
@@ -28,20 +45,11 @@ python3 -m venv .venv
 .venv/bin/pyrtkai --help
 ```
 
-Use `.venv/bin/pyrtkai` or `source .venv/bin/activate` so `pyrtkai` is on `PATH`.
-
-**Cursor hook:** point **`PYRTKAI_PYTHON`** at **`.venv/bin/python`** (absolute path is best in your shell profile / desktop env) so the IDE hook uses the same interpreter.
-
-### Other options
-
-- With an activated venv: `pip install -e .` or `pip install .` (non-editable snapshot).
-- After a future **PyPI** release: `pip install pyrtkai` inside any venv.
-
-**PEP 668:** On many Linux distributions, `pip install` into the **system** Python fails with `externally-managed-environment`. Prefer the **`.venv` in the clone** (above), **pipx**, or another dedicated environment — do not rely on `sudo pip` without knowing the risks.
+**Cursor hook:** set **`PYRTKAI_PYTHON`** to **`.venv/bin/python`** (absolute path) so IDE hooks use the same interpreter.
 
 ### Cursor plugin bundle
 
-A Cursor Marketplace–style layout (manifest, `hooks/hooks.json`, shell wrapper) lives under **`integrations/cursor-plugin/`**. See that directory’s **README** for prerequisites (**priority:** `.venv` in the clone + `.venv/bin/pip install -e .`; until PyPI, no `pip install pyrtkai`; set **`PYRTKAI_PYTHON`**) and manual merge steps for `~/.cursor/hooks.json`.
+A Cursor Marketplace–style layout (manifest, `hooks/hooks.json`, shell wrapper) lives under **`integrations/cursor-plugin/`**. See that directory’s **README** for **`PYRTKAI_PYTHON`**, merging into `~/.cursor/hooks.json`, and either **`pip install pyrtkai`** or an editable install from this repo.
 
 ## Usage
 
@@ -123,8 +131,6 @@ Policy gate deny patterns:
 When **`PYRTKAI_GAIN_ENABLED=1`**, events are stored under **`PYRTKAI_GAIN_DB_PATH`** (default `~/.pyrtkai/gain.sqlite`). Treat this path like any local credential store: use a user-writable directory you trust; do not point it at world-writable locations in multi-user setups.
 
 **CLI:** `pyrtkai gain` with **no** subcommand (`summary` / `export` / `history`) behaves the same as **`pyrtkai gain summary`**: both print the aggregated summary (JSON if **`--json`**). Use explicit subcommands when you want export/history or separate `--limit` on summary.
-
-For web-search integrations discussed in the roadmap: "no dedicated server" means no remote/team-managed server. Local-only mode may still run local processes/services on your machine (for example, a local search backend on `localhost` plus a local MCP adapter process).
 
 #### Understanding savings (amount and percent)
 

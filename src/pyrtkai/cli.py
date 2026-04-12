@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from pyrtkai.cli_bench import run_bench_proxy
-from pyrtkai.cli_config_cmd import run_config
+from pyrtkai.cli_config import run_config
 from pyrtkai.cli_doctor import run_doctor
 from pyrtkai.cli_gain import run_gain
 from pyrtkai.cli_hook import run_hook
@@ -81,6 +81,27 @@ def main(argv: list[str] | None = None) -> int:
         "history", help="Alias for export (recent proxy events as JSON)."
     )
     p_gain_history.add_argument("--limit", type=int, default=1000, help="Max events.")
+
+    p_gain_project = gain_sub.add_parser(
+        "project",
+        help="Summarize token savings for proxy runs under a project directory (cwd).",
+    )
+    p_gain_project.add_argument(
+        "--root",
+        default=".",
+        dest="project_root",
+        metavar="PATH",
+        help="Project root path (default: current working directory).",
+    )
+    p_gain_project.add_argument(
+        "--json", action="store_true", help="Print result as one-line JSON."
+    )
+    p_gain_project.add_argument(
+        "--limit",
+        type=int,
+        default=1000,
+        help="Max classification groups (SQL LIMIT after GROUP BY).",
+    )
 
     p_bench = sub.add_parser("bench", help="Benchmark proxy overhead (local).")
     bench_sub = p_bench.add_subparsers(dest="bench_cmd", required=True)

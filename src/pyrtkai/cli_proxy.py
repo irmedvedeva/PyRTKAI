@@ -6,6 +6,7 @@ import threading
 import time
 from argparse import Namespace
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from pyrtkai.output_filter import create_output_filter_engine
@@ -223,6 +224,7 @@ def run_proxy(args: Namespace) -> int:
                 stderr_tokens_before=stderr_tokens_before,
                 stderr_tokens_after=stderr_tokens_after,
                 exec_time_ms=exec_time_ms,
+                cwd=str(Path.cwd().resolve()),
                 retention_days=gain_cfg.retention_days,
             )
         except Exception as exc:
