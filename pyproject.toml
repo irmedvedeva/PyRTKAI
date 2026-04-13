@@ -15,9 +15,14 @@ keywords = [
   "proxy",
   "cursor",
   "agent",
+  "ai",
   "token",
   "shell",
   "rewrite",
+  "hooks",
+  "subprocess",
+  "filtering",
+  "policy",
 ]
 authors = [{ name = "PyRTKAI" }]
 classifiers = [
@@ -35,8 +40,9 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/irmedvedeva/PyRTKAI"
-Documentation = "https://github.com/irmedvedeva/PyRTKAI#readme"
+Documentation = "https://github.com/irmedvedeva/PyRTKAI/tree/master/docs"
 Repository = "https://github.com/irmedvedeva/PyRTKAI"
+"Environment variables" = "https://github.com/irmedvedeva/PyRTKAI/blob/master/docs/environment-variables.md"
 Changelog = "https://github.com/irmedvedeva/PyRTKAI/releases"
 Issues = "https://github.com/irmedvedeva/PyRTKAI/issues"
 Security = "https://github.com/irmedvedeva/PyRTKAI/blob/master/SECURITY.md"
@@ -58,6 +64,9 @@ version = { attr = "pyrtkai.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pyrtkai = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

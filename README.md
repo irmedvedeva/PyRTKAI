@@ -1,5 +1,10 @@
 # PyRTKAI
 
+[![PyPI version](https://img.shields.io/pypi/v/pyrtkai.svg)](https://pypi.org/project/pyrtkai/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pyrtkai.svg)](https://pypi.org/project/pyrtkai/)
+[![CI](https://github.com/irmedvedeva/PyRTKAI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/irmedvedeva/PyRTKAI/actions/workflows/ci.yml?query=branch%3Amaster)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/irmedvedeva/PyRTKAI/blob/master/LICENSE)
+
 PyRTKAI reduces **CLI noise** in AI agent workflows: a **Python**-based command proxy, conservative rewrite decisions, and output filtering to cut wasted context. The focus is **inspectable code**, explicit safety defaults (**no shell** in the proxy path, **fail-closed** policy), and **testability**.
 
 ## Goals
@@ -28,8 +33,6 @@ python3 -m venv .venv
 .venv/bin/pip install pyrtkai
 .venv/bin/pyrtkai --help
 ```
-
-If **`pip install pyrtkai`** fails (name not on PyPI yet), use **From a source clone** below until the first release is published.
 
 Activate the venv or call `.venv/bin/pyrtkai` directly. If **`pyrtkai`** is not on the `PATH` Cursor uses, set **`PYRTKAI_PYTHON`** to your venv’s **`python`** (absolute path).
 
