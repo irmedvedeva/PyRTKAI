@@ -53,7 +53,7 @@ Security = "https://github.com/irmedvedeva/PyRTKAI/blob/master/SECURITY.md"
 [project.optional-dependencies]
 dev = [
   "pytest>=8",
-  "ruff>=0.4",
+  "ruff>=0.15.10",
   "mypy>=1.8",
   "pip-audit>=2.6",
   "bandit>=1.7",
