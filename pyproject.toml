@@ -56,7 +56,7 @@ dev = [
   "ruff>=0.4",
   "mypy>=1.8",
   "pip-audit>=2.6",
-  "bandit>=1.7",
+  "bandit>=1.9.4",
 ]
 
 [project.scripts]
