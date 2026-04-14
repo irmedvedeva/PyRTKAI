@@ -25,6 +25,9 @@ jobs:
           python -m pip install -e .
           python -m pip install pytest ruff mypy pip-audit bandit
 
+      - name: pip check (dependency consistency)
+        run: python -m pip check
+
       - name: Run tests
         run: pytest -q --ignore=tests/e2e
         # E2E runs in the dedicated matrix job (Ubuntu/Windows/macOS). Includes packaging tests.

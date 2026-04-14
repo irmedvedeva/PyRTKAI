@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from pyrtkai import __version__
 from pyrtkai.cli_bench import run_bench_proxy
 from pyrtkai.cli_config import run_config
 from pyrtkai.cli_doctor import run_doctor
@@ -12,8 +13,32 @@ from pyrtkai.cli_rewrite import run_rewrite
 from pyrtkai.cli_verify_hook import run_verify_hook
 
 
+class _HelpFormatter(
+    argparse.RawDescriptionHelpFormatter,
+    argparse.ArgumentDefaultsHelpFormatter,
+):
+    """Preserve epilog newlines and show defaults."""
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="pyrtkai")
+    parser = argparse.ArgumentParser(
+        prog="pyrtkai",
+        formatter_class=_HelpFormatter,
+        description=(
+            "Local CLI layer for AI-driven terminals: no-shell proxy, hooks, "
+            "output filtering, and policy gate (see README on PyPI)."
+        ),
+        epilog=(
+            "Quick examples:\n"
+            "  pyrtkai doctor --json\n"
+            "  pyrtkai proxy python3 -c \"print('ok')\"\n"
+            "  pyrtkai rewrite git status\n"
+            "  printf '%s' '{\"tool_input\":{\"command\":\"echo hi\"}}' | pyrtkai hook\n"
+            "  pyrtkai bench proxy --iters 5 -- python3 -c \"print(1)\"\n"
+            "\n"
+            f"Version: {__version__}"
+        ),
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser(

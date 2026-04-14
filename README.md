@@ -4,22 +4,98 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/pyrtkai.svg)](https://pypi.org/project/pyrtkai/)
 [![CI](https://github.com/irmedvedeva/PyRTKAI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/irmedvedeva/PyRTKAI/actions/workflows/ci.yml?query=branch%3Amaster)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/irmedvedeva/PyRTKAI/blob/master/LICENSE)
+[![Security checks in CI](https://img.shields.io/badge/CI-bandit%20%7C%20pip--audit-informational.svg)](https://github.com/irmedvedeva/PyRTKAI/actions/workflows/ci.yml?query=branch%3Amaster)
 
-PyRTKAI reduces **CLI noise** in AI agent workflows: a **Python**-based command proxy, conservative rewrite decisions, and output filtering to cut wasted context. The focus is **inspectable code**, explicit safety defaults (**no shell** in the proxy path, **fail-closed** policy), and **testability**.
+> **Less noise. Less risk. Same commands.**  
+> **Safe-by-default execution layer** for Cursor and other AI-driven terminals — local, inspectable Python (**stdlib-only** at runtime).
 
-## Goals
+## Summary
 
-- **Python-only** deployment and straightforward security review of the codebase.
-- First-class **Cursor** integration via `integrations/cursor-plugin/` with `doctor` / `verify-hook`.
-- **Predictable** behavior over chasing maximum command coverage in a single release.
+| | |
+|--|--|
+| **What** | CLI **`proxy`**, **`hook`**, **`rewrite`**, output **filtering**, **fail-closed** policy, optional **gain** metrics |
+| **Who** | Teams using **Cursor** or any **agent-heavy** shell / automation |
+| **Outcome** | **Less wasted context** on huge logs, **fewer shell surprises**, **JSON tool output preserved** when detected |
+| **Safety** | **`proxy`** runs the child with **argv-only** subprocess (**no shell**); bad deny-regex config → **deny** |
 
-## Key ideas
+**Not a ChatGPT/OpenAI client:** no **API keys** or cloud calls for core behavior — see [FAQ](#faq).
 
-1. Local execution only. The proxy runs commands without a shell to avoid accidental interpretation of shell metacharacters.
-2. Conservative rewrite. If the input command looks risky (unbalanced quotes, heredocs, shell operators outside quotes), PyRTKAI returns a skip decision.
-3. Fail closed policy gate. Policy parsing and matching are designed so that misconfiguration defaults to denial.
-4. Structured output preservation. JSON and NDJSON outputs pass through unchanged to keep downstream parsing valid.
-5. Token waste reduction. Text outputs can be truncated deterministically with a configurable marker.
+## Quickstart (~60 seconds)
+
+Copy-paste into a **clean venv** (Python **3.11+**):
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -U pip pyrtkai
+.venv/bin/pyrtkai doctor --json
+.venv/bin/pyrtkai proxy python3 -c "print('ok')"
+```
+
+**Optional:** stdin/stdout hook JSON:
+
+```bash
+printf '%s' '{"tool_input":{"command":"echo hi"}}' | .venv/bin/pyrtkai hook
+```
+
+## Features
+
+- **Context optimization** — deterministic truncation + marker; optional **gain** with `tokens_saved_est` / `tokens_saved_pct_est` (char-based **estimates**, not provider tokenizers).
+- **Safe execution** — **`proxy`** uses **argv-only** `subprocess` (no shell) for the executed program.
+- **Predictable policy** — `PYRTKAI_DENY_REGEXES` / `PYRTKAI_DENY_REGEX`; invalid configuration → **deny** (fail-closed).
+- **Stable tool contracts** — JSON / NDJSON **pass-through** when detected.
+- **Cursor-ready** — hook adapter, **`doctor`** / **`verify-hook`**, bundle under [`integrations/cursor-plugin/`](integrations/cursor-plugin/README.md).
+
+## Why PyRTKAI exists
+
+- **Noise is expensive** — long command output consumes model context even when the answer is short.
+- **Shells are sharp** — agents and wrappers often re-introduce quoting and injection risk.
+- **Safety should default closed** — ambiguous policy configuration should **deny**, not silently allow.
+- **Thin, inspectable layer** — small codebase, tests, optional local SQLite metrics only.
+
+## Before / after (typical behaviors)
+
+| Situation | Without PyRTKAI | With PyRTKAI |
+|-----------|-----------------|--------------|
+| Very long `stdout` | Full text reaches the agent/session | Text may be **truncated with a fixed marker** (`PYRTKAI_OUTPUT_MAX_CHARS`) |
+| Messy shell pipeline / heredoc | Higher risk and harder reasoning | **`rewrite` tends to skip** risky shapes; **`proxy` stays no-shell** |
+| Tool returns JSON | Naive truncation may break parsers | **Structured pass-through** when JSON/NDJSON is detected |
+| Bad deny-regex config | Some systems ignore errors | **Fail-closed deny** for invalid policy input |
+
+### Demo: truncated text (real `proxy` output)
+
+```bash
+export PYRTKAI_OUTPUT_MAX_CHARS=120
+pyrtkai proxy python3 -c "print('x' * 400)"
+```
+
+Expect **first half +** default marker **`...[TRUNCATED]...`** **+ last half** (sizes scale with `PYRTKAI_OUTPUT_MAX_CHARS`).
+
+### Demo: JSON unchanged
+
+```bash
+pyrtkai proxy python3 -c "import json; print(json.dumps({'ok': True, 'id': 42}))"
+```
+
+Valid JSON on one line is **not** shortened by the text filter.
+
+## Compared to common alternatives
+
+| Approach | Trade-off |
+|----------|-----------|
+| Raw shell for every agent command | **More** shell-injection and quoting risk |
+| Ad-hoc `head` / manual copy | Often **breaks structured** output; not a stable contract |
+| IDE-only allow/deny lists | Useful, but **host-specific**; PyRTKAI adds a **portable policy + filtering** layer |
+| Larger “do everything” CLI proxies | Broader surface; PyRTKAI optimizes for **predictability, tests, and small code** |
+
+## Security
+
+- **No shell in `proxy`:** child processes use **argv-only** `subprocess` — see [SECURITY.md](SECURITY.md) (reporting, scope, threat model).
+- **Fail-closed policy:** invalid deny-regex configuration **denies**.
+- **Hook integrity:** SHA-256 baseline vs script on disk — `pyrtkai doctor`, `pyrtkai verify-hook --json` ([details](SECURITY.md)).
+- **CI:** `ruff`, `mypy`, `bandit`, `pip-audit`, `pip check` ([workflow](https://github.com/irmedvedeva/PyRTKAI/actions/workflows/ci.yml)).
+
+## Cursor integration
+
+Step-by-step guide (install, **`PYRTKAI_PYTHON`**, `hooks.json`, **`verify-hook`**, troubleshooting): **[integrations/cursor-plugin/README.md](integrations/cursor-plugin/README.md)**.
 
 ## Installation
 
@@ -54,9 +130,26 @@ python3 -m venv .venv
 
 ### Cursor plugin bundle
 
-A Cursor Marketplace–style layout (manifest, `hooks/hooks.json`, shell wrapper) lives under **`integrations/cursor-plugin/`**. See that directory’s **README** for **`PYRTKAI_PYTHON`**, merging into `~/.cursor/hooks.json`, and either **`pip install pyrtkai`** or an editable install from this repo.
+See **[Cursor integration](#cursor-integration)** and [integrations/cursor-plugin/README.md](integrations/cursor-plugin/README.md).
 
-## Usage
+## Use cases
+
+- **Cursor agent sessions** — shrink noisy `git`/`build`/`test` output before it hits the model; optional **gain** to quantify estimates.
+- **Terminal automation** — same filtering/proxy path for scripts that wrap CLI tools.
+- **CI / developer machines** — enforce deny patterns (`PYRTKAI_DENY_REGEX*`) at the hook layer alongside IDE rules.
+- **Log-heavy commands** — deterministic truncation instead of ad-hoc `head`/`tail` that breaks JSON.
+
+## Benchmarks
+
+Measure **proxy vs direct** subprocess latency ratio (local, no network):
+
+```bash
+pyrtkai bench proxy --iters 10 --json -- python3 -c "print(1)"
+```
+
+Interpretation: ratios depend on OS and workload; use the same command you care about in production.
+
+## Command reference
 
 Run **`pyrtkai --help`** and **`pyrtkai <subcommand> --help`** for the full CLI.
 
@@ -79,6 +172,32 @@ Examples:
 - `pyrtkai gain summary --json`
 - `pyrtkai gain export --limit 1000`
 - `pyrtkai bench proxy --iters 5 --json -- python3 -c "print(1)"`
+
+### Example: `doctor --json` (shape)
+
+Fields vary by machine; expect keys such as `hook_integrity`, `hooks_json`, `mvp_rewrite_rules`, and `output_filter`:
+
+```json
+{
+  "hook_integrity": {
+    "ok": true,
+    "reason": "ok",
+    "hook_path": "/path/to/pyrtkai-rewrite.sh",
+    "baseline_path": "/path/to/pyrtkai-rewrite.sh.sha256"
+  },
+  "hooks_json": {"present": true, "configured": true},
+  "mvp_rewrite_rules": {"git_status": true, "ls": true, "grep": true, "rg": true},
+  "output_filter": {"profile": "truncating", "max_chars": 4000}
+}
+```
+
+### Example: `rewrite` (illustrative)
+
+```bash
+pyrtkai rewrite git status
+```
+
+Stdout is a **single JSON object** describing rewrite/skip and reasons (exact schema: run the command locally).
 
 ## Doctor and config
 
@@ -173,27 +292,24 @@ Per-command groupings live under **`by_classification`** (same fields per group,
 - **Proxy streaming** treats output that begins (after whitespace) with `{` or `[` as JSON pass-through; rare text that looks like JSON at the start will not be truncated.
 - **Deny regexes** (`PYRTKAI_DENY_REGEXES`): input length is capped (see **Limits**), but a regex with catastrophic backtracking can still be expensive on worst-case input within that cap. Prefer simple patterns; for stricter isolation run hooks in a resource-limited environment.
 
-## Security posture
+## FAQ
 
-PyRTKAI is designed to avoid unsafe shell behavior by default:
+- **Do I need an OpenAI / ChatGPT API key?** **No.** PyRTKAI does not call cloud LLM APIs for its core CLI, `proxy`, or `hook` paths.
+- **Why does `pip install` fail on Debian/Ubuntu system Python?** Many distros use **PEP 668** (`externally-managed-environment`). Use a **venv**, **pipx**, or install into a user environment you control — not `sudo pip` unless you understand the risks.
+- **`pyrtkai` not on PATH inside Cursor** — set **`PYRTKAI_PYTHON`** to the **absolute** path of the interpreter that has PyRTKAI installed (see [integrations/cursor-plugin/README.md](integrations/cursor-plugin/README.md)).
+- **Why was my JSON output not truncated?** Output that looks like **JSON/NDJSON** at the start is treated as **structured pass-through** so tools do not break.
+- **How do I loosen or tighten filtering?** See **`PYRTKAI_OUTPUT_MAX_CHARS`**, **`PYRTKAI_OUTPUT_FILTER_PROFILE`**, and [docs/environment-variables.md](docs/environment-variables.md).
+- **How do I effectively disable text truncation?** Set **`PYRTKAI_OUTPUT_MAX_CHARS`** to a **very large** value (e.g. `999999999`). There is no separate “off” switch; `0` is not recommended (behavior is edge-case–sensitive).
+- **How do I debug a failing hook?** Run **`pyrtkai doctor --json`** and **`pyrtkai verify-hook --json`**; run the hook script from a terminal with the same **`PYRTKAI_PYTHON`** and watch stderr; use **`pyrtkai hook`** with a minimal JSON payload (see [Quickstart](#quickstart-60-seconds)).
+- **How do I know the Cursor hook is active?** Run **`pyrtkai doctor --json`** and inspect `hooks_json` / `hook_integrity`; use **`pyrtkai verify-hook --json`** for the bundled script checksum.
+- **Where are security vulnerabilities reported?** See [SECURITY.md](SECURITY.md) (private channel — **not** a public issue for undisclosed vulnerabilities).
 
-- `pyrtkai proxy` executes commands without invoking a shell
-- rewrite decisions are conservative and skip risky patterns
-- JSON and NDJSON outputs are preserved to avoid breaking structured tool responses
-- policy parsing is fail closed (invalid deny configuration denies)
-
-The project uses defense-in-depth checks in CI, including:
-
-- `ruff`
-- `mypy`
-- `bandit`
-- `pip-audit`
-
-**License:** [MIT](LICENSE). **Reporting security issues:** see [SECURITY.md](SECURITY.md).
+**License:** [MIT](LICENSE).
 
 ## Contributing
 
-- **Roadmap:** product direction and ecosystem watch list — [docs/product-roadmap.md](docs/product-roadmap.md).
+- **Contributor guide:** [CONTRIBUTING.md](CONTRIBUTING.md) (tests, linters, packaging, PyPI).
+- **Roadmap:** [docs/product-roadmap.md](docs/product-roadmap.md).
 - **Forks:** if your canonical GitHub repository is not the one listed in **`[project.urls]`** inside **`pyproject.toml`**, update those URLs so PyPI and metadata point to your repo.
 - **Pull requests:** run the same checks as CI before pushing: `make test`, `make lint`, `make typecheck`, and `make security` (or the individual `pytest` / `ruff` / `mypy` / `bandit` / `pip-audit` commands). Optionally run `python -m build` to verify wheels/sdists.
 - **Commits:** large documentation-only changes (e.g. under `.doc/`) can be split from code commits if you want a clearer history—optional, not required.

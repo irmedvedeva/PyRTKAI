@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyrtkai"
-description = "CLI proxy and output filtering for AI agents: safe subprocess execution, rewrite hooks, policy gate, local gain metrics"
+description = "Safe-by-default CLI layer for AI agents — less noise, less risk: no-shell proxy, fail-closed policy, deterministic output filtering, local gain (Cursor-friendly)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -23,6 +23,9 @@ keywords = [
   "subprocess",
   "filtering",
   "policy",
+  "safety",
+  "security",
+  "context",
 ]
 authors = [{ name = "PyRTKAI" }]
 classifiers = [

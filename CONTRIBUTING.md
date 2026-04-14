@@ -1,6 +1,6 @@
 # Contributing
 
-See the **Contributing** section in [README.md](README.md) for fork metadata (`pyproject.toml` URLs), PR expectations, and optional doc/code commit splits.
+Start with the project overview, quickstart, and FAQ in [README.md](README.md). This file lists **CI parity commands**, **PyPI release** steps, and **fork metadata** expectations (`pyproject.toml` URLs).
 
 ## Pre-merge checklist (match CI)
 
@@ -22,6 +22,7 @@ These steps need accounts and human verification; they are not automated here.
 **Repository (public)**
 
 - Set GitHub description, topics, and ensure [SECURITY.md](SECURITY.md) is linked from the repo.
+- Enable **Dependabot** security updates (and review PRs from [.github/dependabot.yml](.github/dependabot.yml) for Actions + pip).
 - Confirm no secrets in tracked files or history (`.env`, API keys, private paths).
 - `.gitignore` should include local-only trees such as `.doc/`, `.cursor/`, `.pyrtkai/`.
 - Tag releases (e.g. `v0.1.0`) and add short release notes.
@@ -41,8 +42,16 @@ These steps need accounts and human verification; they are not automated here.
 
 - Test upload (optional): `twine upload --repository testpypi dist/*`
 - Production: `twine upload dist/*` (uses `~/.pypirc` or `TWINE_USERNAME` / `TWINE_PASSWORD` for token auth).
-- Align `src/pyrtkai/__version__.py` with the Git tag (e.g. `v0.1.0` ↔ `0.1.0`).
+- Align `pyrtkai.__version__` in `src/pyrtkai/__init__.py` with the Git tag (e.g. `v0.1.0` ↔ `0.1.0`).
 - Smoke-test: `pip install pyrtkai` in a fresh venv; run `pyrtkai --help` and `pyrtkai doctor --json`.
+
+## Release checklist (each version)
+
+- Bump `pyrtkai.__version__` in `src/pyrtkai/__init__.py` and align the Cursor plugin manifest if needed.
+- Run `make test` (or `pytest`) and `make lint` / `make typecheck` / `make security` locally.
+- `python -m build` and `twine check dist/*` (or rely on the **Publish to PyPI** workflow after a GitHub Release).
+- Tag `vX.Y.Z`, publish **GitHub Release** (triggers Trusted Publishing when configured).
+- Smoke-test: fresh venv `pip install pyrtkai==X.Y.Z` and `pyrtkai doctor --json`.
 
 ## Forks
 
