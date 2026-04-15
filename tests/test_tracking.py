@@ -178,6 +178,8 @@ def test_gain_summary_cli_empty_db_json(
 
     stdout = capsys.readouterr().out.strip()
     payload = json.loads(stdout)
+    assert payload["_meta"]["schema"] == "gain_summary"
+    assert payload["_meta"]["schema_version"] == 1
     assert payload["total_events"] == 0
     assert payload["tokens_saved_pct_est"] is None
 
@@ -195,6 +197,8 @@ def test_gain_cli_default_summary_json(
     assert rc == 0
     stdout = capsys.readouterr().out.strip()
     payload = json.loads(stdout)
+    assert payload["_meta"]["schema"] == "gain_summary"
+    assert payload["_meta"]["schema_version"] == 1
     assert payload["total_events"] == 0
     assert payload["tokens_saved_pct_est"] is None
 
@@ -233,6 +237,8 @@ def test_gain_project_cli_json(
     rc = main(["gain", "project", "--root", str(proj), "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["_meta"]["schema"] == "gain_project_summary"
+    assert payload["_meta"]["schema_version"] == 1
     assert payload["project_root"] == str(proj.resolve())
     assert payload["total_events"] == 1
     assert int(payload["tokens_saved_est"]) > 0

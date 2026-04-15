@@ -5,6 +5,11 @@ from argparse import Namespace
 from pathlib import Path
 
 from pyrtkai.cli_utils import sanitize_sqlite_limit
+from pyrtkai.schema_meta import (
+    SCHEMA_GAIN_PROJECT_SUMMARY,
+    SCHEMA_GAIN_SUMMARY,
+    attach_schema_meta,
+)
 from pyrtkai.tracking import (
     connect,
     export_proxy_events_json,
@@ -23,7 +28,13 @@ def run_gain(args: Namespace) -> int:
         limit = sanitize_sqlite_limit(args.limit)
         if args.gain_cmd in {None, "summary"}:
             if args.json:
-                print(summarize_proxy_events_json(conn=conn, limit=limit))
+                raw = summarize_proxy_events_json(conn=conn, limit=limit)
+                payload = json.loads(raw)
+                if isinstance(payload, dict):
+                    payload = attach_schema_meta(payload, schema=SCHEMA_GAIN_SUMMARY)
+                    print(json.dumps(payload, ensure_ascii=False))
+                else:
+                    print(raw)
             else:
                 print(
                     json.dumps(summarize_proxy_events(conn=conn, limit=limit), indent=2)
@@ -33,11 +44,18 @@ def run_gain(args: Namespace) -> int:
         elif args.gain_cmd == "project":
             root = Path(args.project_root).expanduser()
             if args.json:
-                print(
-                    summarize_proxy_events_for_project_json(
-                        conn, project_root=root, limit=limit
-                    )
+                raw = summarize_proxy_events_for_project_json(
+                    conn, project_root=root, limit=limit
                 )
+                payload = json.loads(raw)
+                if isinstance(payload, dict):
+                    payload = attach_schema_meta(
+                        payload,
+                        schema=SCHEMA_GAIN_PROJECT_SUMMARY,
+                    )
+                    print(json.dumps(payload, ensure_ascii=False))
+                else:
+                    print(raw)
             else:
                 print(
                     json.dumps(

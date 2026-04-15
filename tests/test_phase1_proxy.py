@@ -193,6 +193,35 @@ def test_rewrite_mvp_disable_ls(
     assert "unsupported command" in payload["reason"]
 
 
+def test_rewrite_git_log_supported_by_default(capsys: pytest.CaptureFixture[str]) -> None:
+    rc = main(["rewrite", "git", "log", "-n", "1"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["action"] == "rewrite"
+    assert "rewritten_cmd" in payload
+
+
+def test_rewrite_git_log_disable_env(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYRTKAI_MVP_ENABLE_GIT_LOG", "0")
+    rc = main(["rewrite", "git", "log", "-n", "1"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["action"] == "skip"
+    assert "unsupported command" in payload["reason"]
+
+
+def test_rewrite_git_log_with_format_is_conservative_skip(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    rc = main(["rewrite", "git", "log", "--format=%H", "-n", "1"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["action"] == "skip"
+    assert "unsupported command" in payload["reason"]
+
+
 def test_proxy_truncates_large_stdout(capsys: pytest.CaptureFixture[str]) -> None:
     big = "print('A' * 20000)"
     rc = main(["proxy", sys.executable, "-c", big])
@@ -333,4 +362,46 @@ def test_proxy_pass_through_large_ndjson(capsys: pytest.CaptureFixture[str]) -> 
     assert "[TRUNCATED]" not in captured.out
     lines = captured.out.strip().splitlines()
     assert len(lines) == 600
+
+
+def test_proxy_summary_flag_on_truncation(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYRTKAI_OUTPUT_MAX_CHARS", "120")
+    rc = main(["proxy", "--summary", sys.executable, "-c", "print('x' * 400)"])
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "[pyrtkai]" in captured.err
+    assert "saved" in captured.err.lower()
+
+
+def test_proxy_strips_double_dash_separator_after_summary(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Documented form `proxy --summary -- python ...` must not execute `--` as argv0."""
+    monkeypatch.setenv("PYRTKAI_OUTPUT_MAX_CHARS", "120")
+    rc = main(
+        [
+            "proxy",
+            "--summary",
+            "--",
+            sys.executable,
+            "-c",
+            "print('x' * 400)",
+        ]
+    )
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "[pyrtkai]" in captured.err
+
+
+def test_proxy_summary_env_var(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PYRTKAI_PROXY_SUMMARY", "1")
+    monkeypatch.setenv("PYRTKAI_OUTPUT_MAX_CHARS", "120")
+    rc = main(["proxy", sys.executable, "-c", "print('x' * 400)"])
+    assert rc == 0
+    captured = capsys.readouterr()
+    assert "[pyrtkai]" in captured.err
 

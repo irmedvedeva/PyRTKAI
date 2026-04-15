@@ -58,6 +58,7 @@ def test_claude_hook_deny_when_original_matches(monkeypatch: pytest.MonkeyPatch)
     hook_out = payload["hookSpecificOutput"]
     assert hook_out["permissionDecision"] == "deny"
     assert hook_out["updatedInput"]["command"] == "git status"
+    assert hook_out["explain"]["code"] == "policy_regex"
 
 
 def test_claude_hook_deny_when_rewritten_only_matches(
@@ -75,6 +76,7 @@ def test_claude_hook_deny_when_rewritten_only_matches(
     assert hook_out["permissionDecision"] == "deny"
     # Fail-closed deny keeps original command.
     assert hook_out["updatedInput"]["command"] == "git status"
+    assert hook_out["explain"]["code"] == "policy_regex"
 
 
 def test_cursor_hook_rewrite_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -161,6 +163,8 @@ def test_copilot_cli_hook_suggest_rewrite(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert payload["permissionDecision"] == "deny"
     assert "pyrtkai.cli proxy git status" in payload["permissionDecisionReason"]
+    assert payload["rewriteRuleHint"]["code"] == "rewrite_rule_git_status"
+    assert "PYRTKAI_MVP_ENABLE_GIT_STATUS=0" in payload["rewriteRuleHint"]["remediation"]
 
 
 def test_copilot_cli_hook_deny_on_policy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -172,6 +176,8 @@ def test_copilot_cli_hook_deny_on_policy(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert payload["permissionDecision"] == "deny"
     assert "deny pattern matched" in payload["permissionDecisionReason"]
+    assert payload["explain"]["code"] == "policy_regex"
+    assert payload["rewriteRuleHint"]["code"] == "rewrite_rule_git_status"
 
 
 def test_copilot_cli_hook_rtk_disabled_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -188,6 +194,7 @@ def test_hook_malformed_json_is_fail_closed() -> None:
     hook_out = payload["hookSpecificOutput"]
     assert hook_out["permissionDecision"] == "deny"
     assert "invalid hook input JSON" in hook_out["permissionDecisionReason"]
+    assert hook_out["explain"]["code"] == "hook_invalid_json"
 
 
 def test_hook_non_object_json_is_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,6 +204,18 @@ def test_hook_non_object_json_is_fail_closed(monkeypatch: pytest.MonkeyPatch) ->
     hook_out = payload["hookSpecificOutput"]
     assert hook_out["permissionDecision"] == "deny"
     assert "hook payload is not an object" in hook_out["permissionDecisionReason"]
+    assert hook_out["explain"]["code"] == "hook_payload_not_object"
+
+
+def test_hook_input_too_large_is_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYRTKAI_HOOK_MAX_STDIN_BYTES", "32")
+    oversized = '{"tool_input":{"command":"' + ("x" * 80) + '"}}'
+    stdout = _call_hook_raw(oversized)
+    payload = json.loads(stdout)
+    hook_out = payload["hookSpecificOutput"]
+    assert hook_out["permissionDecision"] == "deny"
+    assert "PYRTKAI_HOOK_MAX_STDIN_BYTES" in hook_out["permissionDecisionReason"]
+    assert hook_out["explain"]["code"] == "hook_input_too_large"
 
 
 def test_hook_unknown_schema_without_command_is_safe_pass_through() -> None:
@@ -216,4 +235,5 @@ def test_hook_invalid_deny_regex_is_fail_closed(monkeypatch: pytest.MonkeyPatch)
     assert hook_out["permissionDecision"] == "deny"
     assert "policy config error" in hook_out["permissionDecisionReason"]
     assert hook_out["updatedInput"]["command"] == "git status"
+    assert hook_out["explain"]["code"] == "policy_config"
 

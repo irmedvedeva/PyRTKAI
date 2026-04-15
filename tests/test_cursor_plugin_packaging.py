@@ -89,3 +89,11 @@ def test_bundled_hook_script_invokes_pyrtkai() -> None:
     assert result.returncode == 0, (result.stderr, result.stdout)
     out = json.loads(result.stdout.strip())
     assert isinstance(out, dict)
+
+
+def test_bundled_hook_script_uses_exec_double_dash_for_python_path() -> None:
+    """Hardening: PYRTKAI_PYTHON execution path must terminate option parsing."""
+    root = _cursor_plugin_root()
+    script = root / "scripts" / "pyrtkai-rewrite.sh"
+    text = script.read_text(encoding="utf-8")
+    assert 'exec -- "$PYRTKAI_PYTHON" -m pyrtkai.cli hook' in text

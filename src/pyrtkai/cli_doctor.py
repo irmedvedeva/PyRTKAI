@@ -13,6 +13,7 @@ from pyrtkai.cursor_hooks_discover import (
 from pyrtkai.integrity import verify_sha256_baseline
 from pyrtkai.output_filter import load_output_filter_config, load_output_filter_profile
 from pyrtkai.registry import get_mvp_rewrite_rules_enabled
+from pyrtkai.schema_meta import SCHEMA_DOCTOR, build_schema_meta
 
 # Local health check only: avoid loading an unexpectedly huge hooks.json into memory.
 _HOOKS_JSON_MAX_BYTES = 1024 * 1024
@@ -28,7 +29,8 @@ def _read_hooks_json_text(path: Path) -> str | None:
     return path.read_text(encoding="utf-8")
 
 
-def run_doctor(args: Namespace) -> int:
+def collect_doctor_report() -> dict[str, object]:
+    """Build the same payload as `doctor --json` (no printing)."""
     default_hook_path = Path.home() / ".cursor" / "hooks" / "pyrtkai-rewrite.sh"
 
     hooks_json_path = Path.home() / ".cursor" / "hooks.json"
@@ -67,7 +69,8 @@ def run_doctor(args: Namespace) -> int:
 
     max_chars, _trunc_marker = load_output_filter_config()
     profile = load_output_filter_profile()
-    payload: dict[str, object] = {
+    return {
+        "_meta": build_schema_meta(SCHEMA_DOCTOR),
         "hook_integrity": {
             "ok": integrity.ok,
             "reason": integrity.reason,
@@ -85,13 +88,26 @@ def run_doctor(args: Namespace) -> int:
         },
     }
 
+
+def doctor_payload_ok(payload: dict[str, object]) -> bool:
+    hi = payload.get("hook_integrity")
+    hj = payload.get("hooks_json")
+    if not isinstance(hi, dict) or not isinstance(hj, dict):
+        return False
+    return bool(hi.get("ok")) and bool(hj.get("configured"))
+
+
+def run_doctor(args: Namespace) -> int:
+    payload = collect_doctor_report()
+
     if args.json:
         print(json.dumps(payload, ensure_ascii=False))
     else:
-        ok = bool(integrity.ok and hooks_json_configured)
-        print(
-            f"ok={ok} hook_integrity_ok={integrity.ok} "
-            f"hooks_json_configured={hooks_json_configured}"
-        )
+        ok = doctor_payload_ok(payload)
+        hi = payload.get("hook_integrity")
+        hj = payload.get("hooks_json")
+        iok = hi.get("ok") if isinstance(hi, dict) else False
+        hc = hj.get("configured") if isinstance(hj, dict) else False
+        print(f"ok={ok} hook_integrity_ok={iok} hooks_json_configured={hc}")
 
-    return 0 if integrity.ok and hooks_json_configured else 1
+    return 0 if doctor_payload_ok(payload) else 1

@@ -7,7 +7,7 @@
 [![Security checks in CI](https://img.shields.io/badge/CI-bandit%20%7C%20pip--audit-informational.svg)](https://github.com/irmedvedeva/PyRTKAI/actions/workflows/ci.yml?query=branch%3Amaster)
 
 > **Less noise. Less risk. Same commands.**  
-> **Safe-by-default execution layer** for Cursor and other AI-driven terminals — local, inspectable Python (**stdlib-only** at runtime).
+> **Safe-by-default shell layer for Cursor and agent terminals** — local, inspectable Python (**stdlib-only** at runtime).
 
 ## Summary
 
@@ -26,9 +26,12 @@ Copy-paste into a **clean venv** (Python **3.11+**):
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -U pip pyrtkai
+.venv/bin/pyrtkai init
 .venv/bin/pyrtkai doctor --json
 .venv/bin/pyrtkai proxy python3 -c "print('ok')"
 ```
+
+**Guided path (~2 minutes):** after install, run **`pyrtkai init --quickstart`** for numbered copy-paste steps (proxy, truncation + savings line, hook, `status` / `doctor`). Same steps are in **`pyrtkai init --json`** under **`easy_start`**.
 
 **Optional:** stdin/stdout hook JSON:
 
@@ -85,6 +88,10 @@ Valid JSON on one line is **not** shortened by the text filter.
 | Ad-hoc `head` / manual copy | Often **breaks structured** output; not a stable contract |
 | IDE-only allow/deny lists | Useful, but **host-specific**; PyRTKAI adds a **portable policy + filtering** layer |
 | Larger “do everything” CLI proxies | Broader surface; PyRTKAI optimizes for **predictability, tests, and small code** |
+
+**Short positioning + hook behavior + same-command benchmark:** [docs/workflows-and-positioning.md](docs/workflows-and-positioning.md).
+
+**Recipes** (noisy output, policy deny, JSON, Cursor verify, gain): [docs/recipes.md](docs/recipes.md). **Operations index:** [docs/operations.md](docs/operations.md). **Changelog:** [CHANGELOG.md](CHANGELOG.md).
 
 ## Security
 
@@ -155,14 +162,18 @@ Run **`pyrtkai --help`** and **`pyrtkai <subcommand> --help`** for the full CLI.
 
 | Area | Commands |
 |------|----------|
+| Onboarding | `init [--json] [--with-doctor]` |
+| Snapshot | `status [--json] [--limit N]` |
 | Health / config | `doctor [--json]`, `config [--json]` |
-| Core | `rewrite <words…>` (rewrite decision), `proxy <argv…>` (run command with filtering) |
+| Core | `rewrite <words…>` (rewrite decision), `proxy [--summary] <argv…>` (run command with filtering; summary → stderr) |
 | Cursor hook | `hook` (stdin/stdout JSON), `verify-hook [--json]` |
 | Metrics | `gain summary`, `gain export`, `gain history` (optional `--json`, `--limit`); `gain project [--root PATH]` |
 | Benchmark | `bench proxy --iters N [--json] -- <argv…>` |
 
 Examples:
 
+- `pyrtkai init` (or `pyrtkai init --json` / `pyrtkai init --with-doctor`)
+- `pyrtkai status --json`
 - `pyrtkai doctor --json`
 - `pyrtkai config --json`
 - `pyrtkai rewrite git status`
@@ -231,6 +242,7 @@ Environment variables control the rewrite allow list, output truncation, and pol
 MVP rewrite enable flags:
 
 - `PYRTKAI_MVP_ENABLE_GIT_STATUS` (default true)
+- `PYRTKAI_MVP_ENABLE_GIT_LOG` (default true; conservative subset only)
 - `PYRTKAI_MVP_ENABLE_LS` (default true)
 - `PYRTKAI_MVP_ENABLE_GREP` (default true)
 - `PYRTKAI_MVP_ENABLE_RG` (default true)
@@ -241,6 +253,16 @@ Any of these values disable the rule:
 - `false`
 - `no`
 - `off`
+
+Explicit per-rule opt-out examples:
+
+- `export PYRTKAI_MVP_ENABLE_GIT_STATUS=0`
+- `export PYRTKAI_MVP_ENABLE_GIT_LOG=0`
+- `export PYRTKAI_MVP_ENABLE_LS=0`
+- `export PYRTKAI_MVP_ENABLE_GREP=0`
+- `export PYRTKAI_MVP_ENABLE_RG=0`
+
+`pyrtkai rewrite` emits `rewrite_rule_id` + `suggested_disable_env` on rewrite paths so users can copy the exact toggle.
 
 Output filtering:
 

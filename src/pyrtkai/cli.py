@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 
 from pyrtkai import __version__
 from pyrtkai.cli_bench import run_bench_proxy
@@ -8,8 +9,10 @@ from pyrtkai.cli_config import run_config
 from pyrtkai.cli_doctor import run_doctor
 from pyrtkai.cli_gain import run_gain
 from pyrtkai.cli_hook import run_hook
+from pyrtkai.cli_init import run_init
 from pyrtkai.cli_proxy import run_proxy
 from pyrtkai.cli_rewrite import run_rewrite
+from pyrtkai.cli_status import run_status
 from pyrtkai.cli_verify_hook import run_verify_hook
 
 
@@ -30,8 +33,11 @@ def main(argv: list[str] | None = None) -> int:
         ),
         epilog=(
             "Quick examples:\n"
+            "  pyrtkai init --quickstart\n"
+            "  pyrtkai status --json\n"
             "  pyrtkai doctor --json\n"
             "  pyrtkai proxy python3 -c \"print('ok')\"\n"
+            "  pyrtkai proxy --summary -- python3 -c \"print('x'*8000)\"\n"
             "  pyrtkai rewrite git status\n"
             "  printf '%s' '{\"tool_input\":{\"command\":\"echo hi\"}}' | pyrtkai hook\n"
             "  pyrtkai bench proxy --iters 5 -- python3 -c \"print(1)\"\n"
@@ -41,23 +47,79 @@ def main(argv: list[str] | None = None) -> int:
     )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser(
+    p_proxy = sub.add_parser(
         "proxy",
         help="Execute command without rewriting (MVP).",
-    ).add_argument(
+    )
+    p_proxy.add_argument(
+        "--summary",
+        action="store_true",
+        help=(
+            "After the run, print one-line estimated output savings to stderr "
+            "(char + token heuristics)."
+        ),
+    )
+    p_proxy.add_argument(
         "command",
         nargs=argparse.REMAINDER,
-        help="Command argv to execute (no shell).",
+        help=(
+            "Command argv to execute (no shell). Put flags before the program "
+            "(e.g. pyrtkai proxy --summary -- python3 -c \"print(1)\")."
+        ),
     )
 
-    sub.add_parser(
+    p_rewrite = sub.add_parser(
         "rewrite",
         help="Return rewrite decision (MVP placeholder).",
-    ).add_argument("command_str", nargs=argparse.REMAINDER, help="Original command string.")
+    )
+    p_rewrite.add_argument(
+        "--explain",
+        action="store_true",
+        help=(
+            "Include machine-readable explain block (code, why, remediation) "
+            "in JSON when skipping."
+        ),
+    )
+    p_rewrite.add_argument(
+        "command_str",
+        nargs=argparse.REMAINDER,
+        help="Original command string.",
+    )
 
     sub.add_parser(
         "hook",
         help="Read hook JSON from stdin and write Claude-style hookSpecificOutput JSON to stdout.",
+    )
+
+    p_init = sub.add_parser(
+        "init",
+        help="Onboarding: show version, interpreter, and next steps (optional doctor).",
+    )
+    p_init.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+    p_init.add_argument(
+        "--with-doctor",
+        action="store_true",
+        help="Run pyrtkai doctor after the summary (exit code follows doctor when set).",
+    )
+    p_init.add_argument(
+        "--quickstart",
+        action="store_true",
+        help=(
+            "Print a short guided path (~2 min): proxy, truncation demo, hook, status/doctor."
+        ),
+    )
+
+    p_status = sub.add_parser(
+        "status",
+        help="One-screen summary: version, Cursor hook health, optional gain aggregates.",
+    )
+    p_status.add_argument("--json", action="store_true", help="Print JSON.")
+    p_status.add_argument(
+        "--limit",
+        type=int,
+        default=1000,
+        metavar="N",
+        help="Max classification groups when summarizing gain (SQL LIMIT).",
     )
 
     p_verify = sub.add_parser(
@@ -141,22 +203,28 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    if args.cmd == "verify-hook":
-        return run_verify_hook(args)
-    if args.cmd == "doctor":
-        return run_doctor(args)
-    if args.cmd == "config":
-        return run_config(args)
-    if args.cmd == "bench" and args.bench_cmd == "proxy":
-        return run_bench_proxy(args)
-    if args.cmd == "proxy":
-        return run_proxy(args)
-    if args.cmd == "rewrite":
-        return run_rewrite(args)
-    if args.cmd == "hook":
-        return run_hook()
-    if args.cmd == "gain":
-        return run_gain(args)
+    dispatch_table: dict[str, Callable[[argparse.Namespace], int]] = {
+        "verify-hook": run_verify_hook,
+        "init": run_init,
+        "status": run_status,
+        "doctor": run_doctor,
+        "config": run_config,
+        "proxy": run_proxy,
+        "rewrite": run_rewrite,
+        "gain": run_gain,
+        "hook": lambda _args: run_hook(),
+    }
+
+    if args.cmd == "bench":
+        if getattr(args, "bench_cmd", None) == "proxy":
+            return run_bench_proxy(args)
+        raise RuntimeError(
+            f"unhandled pyrtkai subcommand (add a dispatch branch): {args.cmd!r}"
+        )
+
+    handler = dispatch_table.get(args.cmd)
+    if handler is not None:
+        return handler(args)
 
     raise RuntimeError(
         f"unhandled pyrtkai subcommand (add a dispatch branch): {args.cmd!r}"

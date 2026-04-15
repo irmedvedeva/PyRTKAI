@@ -30,6 +30,25 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build twine
 
+      - name: Verify release tag matches package version
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          from pyrtkai import __version__
+          from pyrtkai.release_guard import validate_release_tag_alignment
+
+          import os
+
+          validate_release_tag_alignment(
+              package_version=__version__,
+              event_name=os.environ.get("GITHUB_EVENT_NAME", ""),
+              ref_name=os.environ.get("GITHUB_REF_NAME", ""),
+          )
+          print("release tag/version alignment: OK")
+          PY
+
       - name: Build distributions
         run: python -m build
 

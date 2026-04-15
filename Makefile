@@ -12,7 +12,7 @@ RUFF := $(VENV)/bin/ruff
 MYPY := $(VENV)/bin/mypy
 endif
 
-.PHONY: test test-e2e lint typecheck security
+.PHONY: test test-e2e lint typecheck security smoke-install
 
 test:
 	$(PYTEST) -q
@@ -47,3 +47,20 @@ security:
 		echo "SKIP: pip-audit (install with: pip install pip-audit)"; \
 	fi
 	@echo "(editable installs may show 'not on PyPI' for pyrtkai — expected locally)"
+
+smoke-install:
+	@set -e; \
+	SMOKE_VENV=".venv-clean-smoke"; \
+	rm -rf "$$SMOKE_VENV"; \
+	python3 -m venv "$$SMOKE_VENV"; \
+	. "$$SMOKE_VENV/bin/activate"; \
+	python -m pip install --upgrade pip >/dev/null; \
+	python -m pip install . >/dev/null; \
+	CLI_VERSION=$$(pyrtkai status --json | python -c "import json,sys; d=json.load(sys.stdin); print(d['pyrtkai_version'])"); \
+	IMPL_VERSION=$$(python -c "import pyrtkai; print(pyrtkai.__version__)"); \
+	test "$$CLI_VERSION" = "$$IMPL_VERSION"; \
+	pyrtkai init --json | python -c "import json,sys; d=json.load(sys.stdin); assert 'pyrtkai_version' in d and 'python_executable' in d"; \
+	pyrtkai doctor --json > /dev/null; \
+	deactivate; \
+	rm -rf "$$SMOKE_VENV"; \
+	echo "smoke-install OK ($$CLI_VERSION)"

@@ -4,6 +4,13 @@ from dataclasses import dataclass
 
 from pyrtkai.contracts import CommandRewriter, RewriteDecision
 from pyrtkai.registry import default_registry_rewrite
+from pyrtkai.rewrite_hints import (
+    SKIP_HEREDOC,
+    SKIP_RTK_DISABLED,
+    SKIP_SHELL_METACHAR,
+    static_proxy_example_command,
+    suggested_command_after_rtk_disabled,
+)
 from pyrtkai.shell_parse import (
     find_heredoc_marker_outside_quotes,
     has_shell_metacharacters_outside_quotes,
@@ -33,18 +40,29 @@ class DefaultCommandRewriter:
     def rewrite(self, cmd: str, env_prefix: str) -> RewriteDecision:
         # Gate: RTK_DISABLED in env-prefix means skip rewrite entirely.
         if _env_prefix_has_rtk_disabled(env_prefix):
-            return RewriteDecision(action="skip", reason="RTK_DISABLED present in env-prefix")
+            return RewriteDecision(
+                action="skip",
+                reason="RTK_DISABLED present in env-prefix",
+                skip_code=SKIP_RTK_DISABLED,
+                suggested_command=suggested_command_after_rtk_disabled(
+                    env_prefix=env_prefix,
+                    cmd_wo_prefix=cmd,
+                ),
+            )
 
         if find_heredoc_marker_outside_quotes(cmd):
             return RewriteDecision(
                 action="skip",
                 reason="heredoc marker detected (conservative skip)",
+                skip_code=SKIP_HEREDOC,
             )
 
         if has_shell_metacharacters_outside_quotes(cmd):
             return RewriteDecision(
                 action="skip",
                 reason="shell metacharacters detected (MVP proxy requires no-shell execution)",
+                skip_code=SKIP_SHELL_METACHAR,
+                suggested_command=static_proxy_example_command(),
             )
 
         # Phase 3: apply registry mapping (or skip if unsupported).

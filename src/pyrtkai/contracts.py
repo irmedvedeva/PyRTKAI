@@ -9,6 +9,12 @@ class RewriteDecision:
     action: Literal["rewrite", "pass", "skip"]
     rewritten_cmd: str | None = None
     reason: str | None = None
+    # When action == "skip", optional guidance (P2 soft-magic; argv-safe strings only).
+    skip_code: str | None = None
+    suggested_command: str | None = None
+    # When action == "rewrite", optional hint for explicit per-rule opt-out.
+    rewrite_rule_id: str | None = None
+    suggested_disable_env: str | None = None
 
 
 @dataclass(frozen=True)

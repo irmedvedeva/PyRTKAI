@@ -44,6 +44,33 @@ jobs:
       - name: Security (bandit)
         run: bandit -r src -q
 
+      # Packaging/install UX smoke: simulate end-user install in a fresh venv.
+      - name: Smoke (clean venv install)
+        run: |
+          set -e
+          python -m venv .venv-clean-smoke
+          . .venv-clean-smoke/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install .
+          pyrtkai --help > /dev/null
+          pyrtkai init --json | python -c "import json,sys; d=json.load(sys.stdin); assert 'pyrtkai_version' in d and 'python_executable' in d"
+          pyrtkai status --json | python -c "import json,sys; d=json.load(sys.stdin); assert 'doctor' in d and 'gain' in d and 'pyrtkai_version' in d"
+          python -c "import pyrtkai, json, subprocess; s=subprocess.check_output(['pyrtkai','status','--json'], text=True); d=json.loads(s); assert d['pyrtkai_version']==pyrtkai.__version__"
+          deactivate
+          rm -rf .venv-clean-smoke
+
+      # Fixed-command smoke: bench JSON shape + gain enabled + one truncated proxy event.
+      - name: Smoke (bench proxy + gain summary)
+        env:
+          PYRTKAI_GAIN_ENABLED: "1"
+          PYRTKAI_GAIN_DB_PATH: ${{ runner.temp }}/pyrtkai-gain-ci.sqlite
+          PYRTKAI_OUTPUT_MAX_CHARS: "2000"
+        run: |
+          set -e
+          python -m pyrtkai.cli bench proxy --iters 2 --json python -c pass | python -c "import json,sys; d=json.load(sys.stdin); assert d['direct_exit_code']==0 and d['proxy_exit_code']==0 and d.get('ratio_proxy_to_direct') is not None"
+          python -m pyrtkai.cli proxy python -c "print('y'*8000)"
+          python -m pyrtkai.cli gain summary --json | python -c "import json,sys; d=json.load(sys.stdin); assert d.get('total_events',0)>=1; assert 'tokens_saved_est' in d and 'tokens_before' in d"
+
   e2e:
     name: E2E (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

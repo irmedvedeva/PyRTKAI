@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from pyrtkai.contracts import RewriteDecision
 from pyrtkai.policy import evaluate_permission
+from pyrtkai.rewrite_hints import explain_hook, explain_policy, rewrite_rule_disable_hint
 from pyrtkai.rewriter import get_default_rewriter
 from pyrtkai.shell_parse import extract_env_prefix
 
@@ -14,16 +15,18 @@ class HookOutputClaude:
     permission_decision: str  # "allow" | "deny"
     permission_decision_reason: str
     updated_command: str
+    explain: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": self.permission_decision,
-                "permissionDecisionReason": self.permission_decision_reason,
-                "updatedInput": {"command": self.updated_command},
-            }
+        hook_specific: dict[str, object] = {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": self.permission_decision,
+            "permissionDecisionReason": self.permission_decision_reason,
+            "updatedInput": {"command": self.updated_command},
         }
+        if self.explain is not None:
+            hook_specific["explain"] = self.explain
+        return {"hookSpecificOutput": hook_specific}
 
 
 def _try_get_tool_input_command(payload: object) -> str | None:
@@ -98,6 +101,7 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
             permission_decision="deny",
             permission_decision_reason="invalid hook input JSON (fail-closed)",
             updated_command="",
+            explain=explain_hook("hook_invalid_json"),
         ).to_dict()
 
     if not isinstance(payload_obj, dict):
@@ -105,6 +109,7 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
             permission_decision="deny",
             permission_decision_reason="hook payload is not an object (fail-closed)",
             updated_command="",
+            explain=explain_hook("hook_payload_not_object"),
         ).to_dict()
 
     payload = payload_obj
@@ -157,26 +162,44 @@ def handle_hook_json(stdin_json: str) -> dict[str, object]:
         # Copilot CLI RTK approach: output permissionDecision=deny with a token-savings reason.
         if policy.permission_decision == "deny":
             # For fail-closed rewrite, we deny here (no suggestion rewrite).
-            return {
+            out_cp: dict[str, object] = {
                 "permissionDecision": "deny",
                 "permissionDecisionReason": policy.reason,
             }
+            if policy.policy_code:
+                out_cp["explain"] = explain_policy(policy.policy_code)
+            hint = rewrite_rule_disable_hint(
+                rule_id=rewrite_decision.rewrite_rule_id,
+                disable_export=rewrite_decision.suggested_disable_env,
+            )
+            if hint is not None:
+                out_cp["rewriteRuleHint"] = hint
+            return out_cp
         if rewrite_decision.action == "rewrite":
-            return {
+            out_cp = {
                 "permissionDecision": "deny",
                 "permissionDecisionReason": (
                     "Token savings: use "
                     f"`{rewritten_cmd}` instead (filtered proxy output)"
                 ),
             }
+            hint = rewrite_rule_disable_hint(
+                rule_id=rewrite_decision.rewrite_rule_id,
+                disable_export=rewrite_decision.suggested_disable_env,
+            )
+            if hint is not None:
+                out_cp["rewriteRuleHint"] = hint
+            return out_cp
         return {}
 
     # Claude/VSCodes-like output with permissionDecision + updatedInput.
     if policy.permission_decision == "deny":
+        ex = explain_policy(policy.policy_code) if policy.policy_code else None
         return HookOutputClaude(
             permission_decision="deny",
             permission_decision_reason=policy.reason,
             updated_command=original_cmd,
+            explain=ex,
         ).to_dict()
 
     if policy.permission_decision == "allow" and rewrite_decision.action == "rewrite":
