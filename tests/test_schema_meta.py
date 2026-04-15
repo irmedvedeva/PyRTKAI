@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from pyrtkai.schema_meta import (
@@ -31,8 +33,9 @@ def test_build_schema_meta_rejects_unknown_schema() -> None:
 
 
 def test_attach_schema_meta_is_additive() -> None:
-    payload = {"k": "v"}
+    payload: dict[str, object] = {"k": "v"}
     out = attach_schema_meta(payload, schema=SCHEMA_STATUS)
     assert out["k"] == "v"
-    assert out["_meta"]["schema"] == SCHEMA_STATUS
+    meta = cast(dict[str, object], out["_meta"])
+    assert meta["schema"] == SCHEMA_STATUS
     assert payload == {"k": "v"}
