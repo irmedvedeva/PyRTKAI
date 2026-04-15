@@ -13,6 +13,8 @@ def test_init_json_shape(capsys: pytest.CaptureFixture[str]) -> None:
     assert rc == 0
     out = capsys.readouterr().out.strip()
     data = json.loads(out)
+    assert data["_meta"]["schema"] == "init"
+    assert data["_meta"]["schema_version"] == 1
     assert data["pyrtkai_version"] == __version__
     assert "python_executable" in data
     assert "next_commands" in data
@@ -38,6 +40,16 @@ def test_init_quickstart_with_doctor_runs_doctor(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("PYRTKAI_DENY_REGEXES", raising=False)
+    rc = main(["init", "--quickstart", "--with-doctor"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "--- doctor ---" in out
+
+
+def test_init_quickstart_with_doctor_is_non_blocking_on_doctor_fail(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("pyrtkai.cli_init.run_doctor", lambda _args: 1)
     rc = main(["init", "--quickstart", "--with-doctor"])
     assert rc == 0
     out = capsys.readouterr().out

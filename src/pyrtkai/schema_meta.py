@@ -6,12 +6,14 @@ SCHEMA_VERSION: Final[int] = 1
 
 SCHEMA_DOCTOR: Final[str] = "doctor"
 SCHEMA_STATUS: Final[str] = "status"
+SCHEMA_INIT: Final[str] = "init"
 SCHEMA_GAIN_SUMMARY: Final[str] = "gain_summary"
 SCHEMA_GAIN_PROJECT_SUMMARY: Final[str] = "gain_project_summary"
 
 _KNOWN_SCHEMAS: Final[set[str]] = {
     SCHEMA_DOCTOR,
     SCHEMA_STATUS,
+    SCHEMA_INIT,
     SCHEMA_GAIN_SUMMARY,
     SCHEMA_GAIN_PROJECT_SUMMARY,
 }

@@ -8,6 +8,8 @@ for the **Python package** version in `pyrtkai.__version__`.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-15
+
 ### Added
 
 - User-facing docs: [docs/recipes.md](docs/recipes.md), [docs/workflows-and-positioning.md](docs/workflows-and-positioning.md), [docs/operations.md](docs/operations.md); gain “when non-zero” notes in [docs/environment-variables.md](docs/environment-variables.md).
@@ -25,6 +27,12 @@ for the **Python package** version in `pyrtkai.__version__`.
 - Optional MCP prep: added thin JSON surface contract doc (`docs/mcp-thin-surface.md`) and contract tests (`tests/test_json_contracts.py`) for stable top-level fields.
 - Schema versioning tech-debt start: centralized `_meta` schema policy in `src/pyrtkai/schema_meta.py` and refactored `doctor` / `status` / `gain` JSON emitters to use it.
 - Optional MCP depth: documented `proxy` tool contract + safety limits in `docs/mcp-thin-surface.md` and added `tests/test_proxy_contracts.py`.
+
+### Fixed
+
+- `init --quickstart --with-doctor` now remains non-blocking for onboarding: doctor output is printed, but quickstart exits `0` even when local hook setup is incomplete.
+- Type-checking fix in `tests/test_schema_meta.py` for `dict[str, object]` invariance and `_meta` indexing under `mypy`.
+- `rewrite --explain` skip text now lists the current MVP rewrite set including `git log`.
 
 ## [0.1.2]
 

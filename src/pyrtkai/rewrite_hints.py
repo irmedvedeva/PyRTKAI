@@ -38,7 +38,10 @@ EXPLAIN_SKIP: dict[str, dict[str, str]] = {
     },
     SKIP_UNSUPPORTED_MVP: {
         "code": SKIP_UNSUPPORTED_MVP,
-        "why": "This command is not in the MVP rewrite registry (git status, ls, grep, rg).",
+        "why": (
+            "This command is not in the MVP rewrite registry "
+            "(git status, git log, ls, grep, rg)."
+        ),
         "remediation": (
             "Call pyrtkai proxy yourself for output filtering, or use a supported command shape."
         ),

@@ -13,6 +13,7 @@ from typing import Any
 
 from pyrtkai import __version__
 from pyrtkai.cli_doctor import run_doctor
+from pyrtkai.schema_meta import SCHEMA_INIT, build_schema_meta
 
 
 def _cli_module_invocation() -> str:
@@ -90,6 +91,7 @@ def _build_payload(with_doctor: bool) -> dict[str, Any]:
     exe = sys.executable
     pyrtkai_python = os.environ.get("PYRTKAI_PYTHON", "").strip() or None
     base: dict[str, Any] = {
+        "_meta": build_schema_meta(SCHEMA_INIT),
         "pyrtkai_version": __version__,
         "python_version": sys.version.split()[0],
         "python_executable": exe,

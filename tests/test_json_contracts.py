@@ -16,6 +16,15 @@ def test_contract_status_json_has_meta(capsys: pytest.CaptureFixture[str]) -> No
     assert "doctor" in payload and "gain" in payload
 
 
+def test_contract_init_json_has_meta(capsys: pytest.CaptureFixture[str]) -> None:
+    rc = main(["init", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["_meta"]["schema"] == "init"
+    assert payload["_meta"]["schema_version"] == 1
+    assert "easy_start" in payload and "pyrtkai_version" in payload
+
+
 def test_contract_doctor_json_has_meta(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["doctor", "--json"])
     assert rc in {0, 1}

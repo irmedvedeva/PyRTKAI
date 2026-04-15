@@ -45,6 +45,8 @@ jobs:
         run: bandit -r src -q
 
       # Packaging/install UX smoke: simulate end-user install in a fresh venv.
+      # This step uses POSIX activate/deactivate and intentionally runs on this
+      # job's Ubuntu runner (`test.runs-on: ubuntu-latest`).
       - name: Smoke (clean venv install)
         run: |
           set -e

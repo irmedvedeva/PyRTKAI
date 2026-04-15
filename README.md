@@ -31,6 +31,16 @@ python3 -m venv .venv && .venv/bin/pip install -U pip pyrtkai
 .venv/bin/pyrtkai proxy python3 -c "print('ok')"
 ```
 
+Windows (PowerShell) equivalent:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python -m pip install -U pip pyrtkai
+.\.venv\Scripts\pyrtkai init
+.\.venv\Scripts\pyrtkai doctor --json
+.\.venv\Scripts\pyrtkai proxy py -c "print('ok')"
+```
+
 **Guided path (~2 minutes):** after install, run **`pyrtkai init --quickstart`** for numbered copy-paste steps (proxy, truncation + savings line, hook, `status` / `doctor`). Same steps are in **`pyrtkai init --json`** under **`easy_start`**.
 
 **Optional:** stdin/stdout hook JSON:
