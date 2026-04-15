@@ -144,7 +144,10 @@ def run_init(args: Namespace) -> int:
         print()
         if with_doctor:
             print("--- doctor ---")
-            return run_doctor(Namespace(json=False))
+            run_doctor(Namespace(json=False))
+            # Onboarding quickstart should stay non-blocking: doctor output informs,
+            # but missing local hook setup must not fail the init command.
+            return 0
         return 0
 
     print("PyRTKAI init")
