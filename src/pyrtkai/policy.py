@@ -10,6 +10,8 @@ class PolicyDecision:
     permission_decision: str  # "allow" | "deny"
     reason: str
     final_command: str
+    # Set on deny paths for machine-readable remediation in hook / JSON consumers.
+    policy_code: str | None = None
 
 
 def _load_deny_patterns_from_env() -> tuple[list[re.Pattern[str]], str | None]:
@@ -67,6 +69,7 @@ def evaluate_permission(
             permission_decision="deny",
             reason=f"policy config error (fail-closed): {config_error}",
             final_command=original_command,
+            policy_code="policy_config",
         )
 
     if not patterns:
@@ -91,6 +94,7 @@ def evaluate_permission(
                     f"PYRTKAI_DENY_REGEX_MAX_INPUT_CHARS ({max_chars}) (fail-closed)"
                 ),
                 final_command=original_command,
+                policy_code="policy_length",
             )
 
     for cand in candidates:
@@ -100,6 +104,7 @@ def evaluate_permission(
                     permission_decision="deny",
                     reason=f"deny pattern matched: {pat.pattern!r}",
                     final_command=original_command,
+                    policy_code="policy_regex",
                 )
 
     final = rewritten_command if rewritten_command is not None else original_command

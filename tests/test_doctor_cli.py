@@ -11,6 +11,7 @@ from pyrtkai.integrity import store_sha256_baseline
 
 MVP_ENV_VARS = (
     "PYRTKAI_MVP_ENABLE_GIT_STATUS",
+    "PYRTKAI_MVP_ENABLE_GIT_LOG",
     "PYRTKAI_MVP_ENABLE_LS",
     "PYRTKAI_MVP_ENABLE_GREP",
     "PYRTKAI_MVP_ENABLE_RG",
@@ -89,10 +90,13 @@ def test_doctor_ok(
     rc = main(["doctor", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out.strip())
+    assert payload["_meta"]["schema"] == "doctor"
+    assert payload["_meta"]["schema_version"] == 1
     assert payload["hook_integrity"]["ok"] is True
     assert payload["hooks_json"]["configured"] is True
     assert payload["mvp_rewrite_rules"] == {
         "git_status": True,
+        "git_log": True,
         "ls": True,
         "grep": True,
         "rg": True,
@@ -163,6 +167,7 @@ def test_doctor_tampered_fails(
     assert payload["hooks_json"]["configured"] is True
     assert payload["mvp_rewrite_rules"] == {
         "git_status": True,
+        "git_log": True,
         "ls": True,
         "grep": True,
         "rg": True,
@@ -208,6 +213,7 @@ def test_doctor_hooks_json_present_but_not_configured(
     assert payload["hooks_json"]["configured"] is False
     assert payload["mvp_rewrite_rules"] == {
         "git_status": True,
+        "git_log": True,
         "ls": True,
         "grep": True,
         "rg": True,
@@ -283,6 +289,7 @@ def test_config_json_default(
     payload = json.loads(capsys.readouterr().out.strip())
     assert payload["mvp_rewrite_rules"] == {
         "git_status": True,
+        "git_log": True,
         "ls": True,
         "grep": True,
         "rg": True,

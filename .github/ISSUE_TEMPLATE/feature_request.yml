@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement (must stay aligned with safety model in README / SECURITY.md).
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PyRTKAI prioritizes **argv-only `proxy`**, **fail-closed policy**, and **predictable** output handling. Requests that imply `shell=True` or weakening deny-by-default policy are unlikely to be accepted without a strong design.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What workflow is awkward or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Concrete CLI, JSON shape, or docs change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds, env vars, or docs-only solutions.

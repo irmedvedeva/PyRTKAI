@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess  # nosec
 import sys
 import threading
@@ -15,13 +16,22 @@ from pyrtkai.tracking import (
     estimate_tokens_from_chars,
     load_gain_config,
     record_proxy_event,
+    tokens_saved_pct_est,
 )
 
 
 def run_proxy(args: Namespace) -> int:
     proxy_cmd_argv: list[str] = list(args.command)
+    # Allow `pyrtkai proxy --summary -- python3 -c "..."` (strip POSIX `--` separator).
+    while proxy_cmd_argv and proxy_cmd_argv[0] == "--":
+        proxy_cmd_argv = proxy_cmd_argv[1:]
     if not proxy_cmd_argv:
         return 2
+
+    show_summary = bool(getattr(args, "summary", False)) or (
+        os.environ.get("PYRTKAI_PROXY_SUMMARY", "").strip().lower()
+        in {"1", "true", "yes"}
+    )
 
     # Safety: use subprocess with argv list, never shell=True.
     start = time.perf_counter()
@@ -236,5 +246,32 @@ def run_proxy(args: Namespace) -> int:
                     conn.close()
                 except Exception as exc:
                     _ignored_close_error = exc  # noqa: F841
+
+    if show_summary:
+        chars_before = stdout_chars_before + stderr_chars_before
+        chars_after = stdout_chars_after + stderr_chars_after
+        saved_chars = chars_before - chars_after
+        pct_chars = (
+            round(100.0 * float(saved_chars) / float(chars_before), 1)
+            if chars_before > 0
+            else 0.0
+        )
+        tb = stdout_tokens_before + stderr_tokens_before
+        ta = stdout_tokens_after + stderr_tokens_after
+        tsaved = tb - ta
+        pct_tok = tokens_saved_pct_est(tokens_before=tb, tokens_saved=tsaved)
+        parts = [
+            "[pyrtkai]",
+            f"output chars {chars_before} -> {chars_after}",
+            f"saved ~{saved_chars} chars",
+        ]
+        if chars_before > 0 and saved_chars > 0:
+            parts.append(f"~{pct_chars}%")
+        parts.append(
+            f"| est. tokens {tb} -> {ta} saved ~{tsaved}"
+            + (f" (~{pct_tok}%)" if pct_tok is not None and tsaved > 0 else "")
+        )
+        parts.append("(heuristic; not a model tokenizer)")
+        print(" ".join(parts), file=sys.stderr)
 
     return int(proc.returncode)

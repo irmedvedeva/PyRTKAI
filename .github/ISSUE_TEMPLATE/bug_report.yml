@@ -1,0 +1,58 @@
+name: Bug report
+description: Report unexpected CLI, hook, or proxy behavior (not security vulnerabilities).
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For **security issues**, use the link in “Security vulnerability” when opening a new issue (see [SECURITY.md](../../SECURITY.md)).
+  - type: input
+    id: version
+    attributes:
+      label: pyrtkai version
+      description: Output of `pyrtkai --help` (last line) or `python -c "import pyrtkai; print(pyrtkai.__version__)"`.
+      placeholder: e.g. 0.1.2
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: e.g. 3.12.3
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal command(s); use argv-safe examples where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Optional context
+      description: Hook host (e.g. Cursor), relevant `PYRTKAI_*` env vars (no secrets).

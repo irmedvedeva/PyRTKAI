@@ -31,4 +31,6 @@ def test_root_help_includes_quick_examples(capsys: pytest.CaptureFixture[str]) -
     assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "Quick examples" in out
+    assert "pyrtkai init" in out
+    assert "pyrtkai status" in out
     assert "doctor --json" in out

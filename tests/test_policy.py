@@ -11,6 +11,7 @@ def test_no_deny_patterns_allows_without_length_check(monkeypatch: pytest.Monkey
     long_cmd = "x" * 200_000
     d = evaluate_permission(original_command=long_cmd, rewritten_command=None)
     assert d.permission_decision == "allow"
+    assert d.policy_code is None
 
 
 def test_deny_when_original_exceeds_max_input_chars(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21,6 +22,7 @@ def test_deny_when_original_exceeds_max_input_chars(monkeypatch: pytest.MonkeyPa
     assert d.permission_decision == "deny"
     assert "exceeds" in d.reason.lower()
     assert "PYRTKAI_DENY_REGEX_MAX_INPUT_CHARS" in d.reason
+    assert d.policy_code == "policy_length"
 
 
 def test_deny_when_rewritten_exceeds_max_input_chars(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -32,6 +34,7 @@ def test_deny_when_rewritten_exceeds_max_input_chars(monkeypatch: pytest.MonkeyP
     )
     assert d.permission_decision == "deny"
     assert "exceeds" in d.reason.lower()
+    assert d.policy_code == "policy_length"
 
 
 def test_under_limit_still_matches_deny_regex(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -40,3 +43,11 @@ def test_under_limit_still_matches_deny_regex(monkeypatch: pytest.MonkeyPatch) -
     d = evaluate_permission(original_command="echo secret", rewritten_command=None)
     assert d.permission_decision == "deny"
     assert "deny pattern matched" in d.reason
+    assert d.policy_code == "policy_regex"
+
+
+def test_invalid_deny_regex_sets_policy_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYRTKAI_DENY_REGEXES", "(*bad")
+    d = evaluate_permission(original_command="echo ok", rewritten_command=None)
+    assert d.permission_decision == "deny"
+    assert d.policy_code == "policy_config"

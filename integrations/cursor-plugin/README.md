@@ -10,6 +10,7 @@ This directory is a **Cursor Marketplace–shaped** plugin layout: manifest, hoo
    python3 -m venv .venv
    .venv/bin/pip install -U pip
    .venv/bin/pip install pyrtkai
+   .venv/bin/pyrtkai init
    ```
 
    **Developers** working on the plugin next to the source tree:
@@ -19,6 +20,7 @@ This directory is a **Cursor Marketplace–shaped** plugin layout: manifest, hoo
    python3 -m venv .venv
    .venv/bin/pip install -U pip
    .venv/bin/pip install -e .
+   .venv/bin/pyrtkai init
    ```
 
 2. Expose the same interpreter to **Cursor** (hooks do not inherit your shell unless configured):
@@ -31,7 +33,14 @@ This directory is a **Cursor Marketplace–shaped** plugin layout: manifest, hoo
 
 3. Merge `hooks/hooks.json` into `~/.cursor/hooks.json` and install/copy `scripts/pyrtkai-rewrite.sh` to the path your `command` references (see **Manual install**).
 
-4. Run **`pyrtkai doctor --json`** — expect `hooks_json.configured` and `hook_integrity.ok` when paths match.
+4. Run **`pyrtkai init --quickstart`** once (guided copy-paste path), then check:
+
+   ```bash
+   pyrtkai doctor --json
+   pyrtkai status --json
+   ```
+
+   Expect `hooks_json.configured` and `hook_integrity.ok` when paths match.
 
 If `pyrtkai` is missing, the hook script exits with an error (no silent failure). Install **before** relying on the agent.
 
@@ -95,10 +104,33 @@ Copy or symlink into your Cursor config (paths vary by OS):
 Then run:
 
 ```bash
+pyrtkai init --quickstart
 pyrtkai doctor --json
+pyrtkai status --json
 ```
 
 `doctor` detects `preToolUse` / `beforeShellExecution` entries whose command resolves to `pyrtkai-rewrite.sh` and verifies integrity against `.pyrtkai-rewrite.sh.sha256` next to that script when present.
+
+For automation, JSON outputs include additive metadata:
+
+- `doctor --json` → `_meta.schema = "doctor"`
+- `status --json` → `_meta.schema = "status"`
+
+This metadata is additive and does not remove existing keys.
+
+## Optional rewrite rule opt-out (per command class)
+
+If you want raw execution for specific command classes in your local setup:
+
+```bash
+export PYRTKAI_MVP_ENABLE_GIT_STATUS=0
+export PYRTKAI_MVP_ENABLE_GIT_LOG=0
+export PYRTKAI_MVP_ENABLE_LS=0
+export PYRTKAI_MVP_ENABLE_GREP=0
+export PYRTKAI_MVP_ENABLE_RG=0
+```
+
+`pyrtkai rewrite` also emits `rewrite_rule_id` and `suggested_disable_env` so users can copy the exact toggle.
 
 ## Marketplace submission
 
